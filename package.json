@@ -1,5 +1,5 @@
 {
-	"name": "app",
+	"name": "honey-path",
 	"main": "expo-router/entry",
 	"version": "1.0.0",
 	"private": true,
