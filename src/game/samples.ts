@@ -15,8 +15,27 @@ function hexDisk(radius: number): Cell[] {
 	return cells;
 }
 
-/** 一辺 2 の六角形から中央を抜いた、線も縛りもないサンプル */
+const ring = hexDisk(2).filter((cell) => !(cell.x === 0 && cell.y === 0));
+
+/** 線も縛りもない穴あき面に、赤・青のスタートとゴールを置いたサンプル */
 export const sampleBoard: Board = {
-	cells: hexDisk(2).filter((cell) => !(cell.x === 0 && cell.y === 0)),
-	lines: [],
+	cells: ring.map((cell) => {
+		if (cell.x === -2 && cell.y === 0) {
+			return { ...cell, start: { color: "red" } };
+		}
+		if (cell.x === 2 && cell.y === 0) {
+			return { ...cell, goal: { color: "red" } };
+		}
+		if (cell.x === 0 && cell.y === -2) {
+			return { ...cell, start: { color: "blue" } };
+		}
+		if (cell.x === 0 && cell.y === 2) {
+			return { ...cell, goal: { color: "blue" } };
+		}
+		return cell;
+	}),
+	lines: [
+		{ color: "red", coords: [] },
+		{ color: "blue", coords: [] },
+	],
 };

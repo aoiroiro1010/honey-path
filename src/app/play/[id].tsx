@@ -1,6 +1,8 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { linesFromBoard } from "@/game/draw";
 import { getLevel } from "@/game/levels";
 import { useProgress } from "@/game/progress";
 import { BoardView } from "@/ui/BoardView";
@@ -12,6 +14,15 @@ export default function PlayScreen() {
 	const insets = useSafeAreaInsets();
 	const markCleared = useProgress((state) => state.markCleared);
 	const level = id ? getLevel(id) : undefined;
+	const [lines, setLines] = useState(() =>
+		level ? linesFromBoard(level.board) : [],
+	);
+
+	useEffect(() => {
+		if (level) {
+			setLines(linesFromBoard(level.board));
+		}
+	}, [level]);
 
 	if (!level) {
 		return <Redirect href="/levels" />;
@@ -32,20 +43,18 @@ export default function PlayScreen() {
 				<View className="w-12" />
 			</View>
 
-			<ScrollView
-				contentContainerClassName="flex-grow items-center justify-center px-4 py-6"
-				showsVerticalScrollIndicator={false}
+			<View
+				className="flex-1 items-center justify-center px-4"
+				style={{ userSelect: "none" }}
 			>
-				<BoardView board={level.board} />
-			</ScrollView>
+				<BoardView board={level.board} lines={lines} onChangeLines={setLines} />
+			</View>
 
 			<View className="gap-3 px-6">
 				<Button
 					label="リセット"
 					variant="secondary"
-					onPress={() => {
-						/* 線の操作は次のステップ */
-					}}
+					onPress={() => setLines(linesFromBoard(level.board))}
 				/>
 				<Button
 					label="クリア（仮）"

@@ -97,7 +97,7 @@ export function CellView({ cell, line }: Props) {
 	const points = hexPoints();
 
 	return (
-		<Svg width={DIM} height={DIM}>
+		<Svg width={DIM} height={DIM} style={{ userSelect: "none" }}>
 			<Defs>
 				<ClipPath id={clipId}>
 					<Polygon points={points} />
