@@ -20,6 +20,11 @@ export default function TitleScreen() {
 			</View>
 			<View className="gap-3">
 				<Button label="はじめる" onPress={() => router.push("/levels")} />
+				<Button
+					label="生成テスト"
+					variant="secondary"
+					onPress={() => router.push("/lab")}
+				/>
 			</View>
 		</View>
 	);
