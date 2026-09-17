@@ -3,132 +3,227 @@ import type { Cell } from "../model/cell";
 import { COLORS, type Color } from "../model/color";
 import { dirBetween, hexDistance } from "../model/hex";
 import { type Difficulty, difficultyForTier } from "./difficulty";
-import { createRng, rngInt, rngPick, rngShuffle } from "./rng";
+import { createRng, rngInt, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
 import { createUniquenessChecker } from "./uniqueness";
 
 type Coord = { x: number; y: number };
 type Path = { color: Color; coords: Coord[] };
 
-const MAX_ATTEMPTS = 100;
-const PATH_ATTEMPTS = 40;
+const MAX_ATTEMPTS = 80;
+const PATH_ATTEMPTS = 20;
 
-function degreeIn(key: string, remaining: Set<string>): number {
-	const { x, y } = axialFromKey(key);
-	return neighborKeys(x, y).filter((n) => remaining.has(n)).length;
-}
+type CarveGraph = {
+	n: number;
+	keys: string[];
+	coords: Coord[];
+	neighbors: number[][];
+	alive: Uint8Array;
+	seen: Uint8Array;
+	stamp: number;
+	stack: number[];
+	aliveCount: number;
+};
 
-function isConnected(keys: Set<string>): boolean {
-	if (keys.size <= 1) {
-		return true;
-	}
-	const start = keys.values().next().value as string;
-	const seen = new Set<string>();
-	const stack = [start];
-	while (stack.length > 0) {
-		const key = stack.pop();
-		if (!key || seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
-		const { x, y } = axialFromKey(key);
-		for (const n of neighborKeys(x, y)) {
-			if (keys.has(n) && !seen.has(n)) {
-				stack.push(n);
+function buildCarveGraph(cellKeys: string[]): CarveGraph {
+	const n = cellKeys.length;
+	const keyIndex = new Map(cellKeys.map((k, i) => [k, i]));
+	const coords = cellKeys.map(axialFromKey);
+	const neighbors: number[][] = Array.from({ length: n }, () => []);
+	for (let i = 0; i < n; i++) {
+		const { x, y } = coords[i];
+		for (const nk of neighborKeys(x, y)) {
+			const j = keyIndex.get(nk);
+			if (j !== undefined) {
+				neighbors[i].push(j);
 			}
 		}
 	}
-	return seen.size === keys.size;
+	return {
+		n,
+		keys: cellKeys,
+		coords,
+		neighbors,
+		alive: new Uint8Array(n).fill(1),
+		seen: new Uint8Array(n),
+		stamp: 1,
+		stack: [],
+		aliveCount: n,
+	};
+}
+
+function carveConnected(g: CarveGraph): boolean {
+	if (g.aliveCount <= 1) {
+		return true;
+	}
+	g.stamp = (g.stamp + 1) & 255;
+	if (g.stamp === 0) {
+		g.seen.fill(0);
+		g.stamp = 1;
+	}
+	const stamp = g.stamp;
+	let start = -1;
+	for (let i = 0; i < g.n; i++) {
+		if (g.alive[i]) {
+			start = i;
+			break;
+		}
+	}
+	if (start < 0) {
+		return true;
+	}
+	const stack = g.stack;
+	stack.length = 0;
+	stack.push(start);
+	g.seen[start] = stamp;
+	let found = 0;
+	while (stack.length > 0) {
+		const i = stack.pop() as number;
+		found += 1;
+		for (const j of g.neighbors[i]) {
+			if (g.alive[j] && g.seen[j] !== stamp) {
+				g.seen[j] = stamp;
+				stack.push(j);
+			}
+		}
+	}
+	return found === g.aliveCount;
+}
+
+function degreeAlive(g: CarveGraph, i: number): number {
+	let d = 0;
+	for (const j of g.neighbors[i]) {
+		if (g.alive[j]) {
+			d += 1;
+		}
+	}
+	return d;
 }
 
 /** 残りが連結なまま進む経路（大きい盤で分断しない） */
-function growPath(
-	startKey: string,
-	remaining: Set<string>,
+function growPathIndexed(
+	g: CarveGraph,
+	start: number,
 	rng: () => number,
 	maxLength: number,
-): string[] {
-	const path = [startKey];
-	remaining.delete(startKey);
+): number[] {
+	const path = [start];
+	g.alive[start] = 0;
+	g.aliveCount -= 1;
 
 	while (path.length < maxLength) {
-		const tip = axialFromKey(path[path.length - 1]);
-		let options = neighborKeys(tip.x, tip.y).filter((key) =>
-			remaining.has(key),
-		);
+		const tip = path[path.length - 1];
+		let options: number[] = [];
+		for (const j of g.neighbors[tip]) {
+			if (g.alive[j]) {
+				options.push(j);
+			}
+		}
 		if (options.length === 0) {
 			break;
 		}
 
-		// 取ったあとも残りが連結なものだけ候補に（候補が複数のときだけ検査）
-		if (options.length > 1 && remaining.size > 8) {
-			const safe = options.filter((key) => {
-				remaining.delete(key);
-				const ok = isConnected(remaining);
-				remaining.add(key);
-				return ok;
-			});
+		if (options.length > 1 && g.aliveCount > 8) {
+			const safe: number[] = [];
+			for (const j of options) {
+				g.alive[j] = 0;
+				g.aliveCount -= 1;
+				if (carveConnected(g)) {
+					safe.push(j);
+				}
+				g.alive[j] = 1;
+				g.aliveCount += 1;
+			}
 			if (safe.length > 0) {
 				options = safe;
 			}
 		}
 
-		const prev =
-			path.length >= 2 ? axialFromKey(path[path.length - 2]) : undefined;
-		const scored = options.map((key) => {
-			const next = axialFromKey(key);
+		const prev = path.length >= 2 ? path[path.length - 2] : -1;
+		let best = options[0];
+		let bestScore = -1;
+		for (const j of options) {
 			let bend = 0;
-			if (prev) {
-				const d1 = dirBetween(tip, prev);
-				const d2 = dirBetween(tip, next);
+			if (prev >= 0) {
+				const tipC = g.coords[tip];
+				const prevC = g.coords[prev];
+				const nextC = g.coords[j];
+				const d1 = dirBetween(tipC, prevC);
+				const d2 = dirBetween(tipC, nextC);
 				if (d1 && d2 && d1 !== d2) {
 					bend = 1;
 				}
 			}
-			return { key, score: bend * 2 + rng() };
-		});
-		scored.sort((a, b) => b.score - a.score);
-		const next = scored[0].key;
-		path.push(next);
-		remaining.delete(next);
+			const score = bend * 2 + rng();
+			if (score > bestScore) {
+				bestScore = score;
+				best = j;
+			}
+		}
+		path.push(best);
+		g.alive[best] = 0;
+		g.aliveCount -= 1;
 	}
 
 	return path;
 }
 
-/** 残マスをすべて通る経路（最後の色用） */
-function coverRemaining(
-	cellKeys: string[],
+function coverRemainingIndexed(
+	g: CarveGraph,
 	rng: () => number,
-): string[] | null {
-	if (cellKeys.length < 2) {
+): number[] | null {
+	if (g.aliveCount < 2) {
 		return null;
 	}
-	for (let attempt = 0; attempt < 24; attempt++) {
-		const start = rngPick(rng, cellKeys);
-		const remaining = new Set(cellKeys);
-		remaining.delete(start);
+	const candidates: number[] = [];
+	for (let i = 0; i < g.n; i++) {
+		if (g.alive[i]) {
+			candidates.push(i);
+		}
+	}
+	const savedAlive = Uint8Array.from(g.alive);
+	const savedCount = g.aliveCount;
+
+	for (let attempt = 0; attempt < 16; attempt++) {
+		g.alive.set(savedAlive);
+		g.aliveCount = savedCount;
+		const start = candidates[rngInt(rng, candidates.length)];
 		const path = [start];
+		g.alive[start] = 0;
+		g.aliveCount -= 1;
 		let stuck = false;
-		while (remaining.size > 0) {
-			const tip = axialFromKey(path[path.length - 1]);
-			const options = rngShuffle(
-				rng,
-				neighborKeys(tip.x, tip.y).filter((key) => remaining.has(key)),
-			);
+		while (g.aliveCount > 0) {
+			const tip = path[path.length - 1];
+			const options: number[] = [];
+			for (const j of g.neighbors[tip]) {
+				if (g.alive[j]) {
+					options.push(j);
+				}
+			}
 			if (options.length === 0) {
 				stuck = true;
 				break;
 			}
-			options.sort((a, b) => degreeIn(a, remaining) - degreeIn(b, remaining));
-			const next = options[0];
-			path.push(next);
-			remaining.delete(next);
+			let best = options[0];
+			let bestDeg = degreeAlive(g, best);
+			for (let k = 1; k < options.length; k++) {
+				const j = options[k];
+				const d = degreeAlive(g, j);
+				if (d < bestDeg || (d === bestDeg && rng() < 0.3)) {
+					best = j;
+					bestDeg = d;
+				}
+			}
+			path.push(best);
+			g.alive[best] = 0;
+			g.aliveCount -= 1;
 		}
-		if (!stuck && path.length === cellKeys.length) {
+		if (!stuck) {
 			return path;
 		}
 	}
+	g.alive.set(savedAlive);
+	g.aliveCount = savedCount;
 	return null;
 }
 
@@ -143,12 +238,12 @@ function carveSeparatePaths(
 		return null;
 	}
 
-	const remaining = new Set(cellKeys);
+	const g = buildCarveGraph(cellKeys);
 	const paths: Path[] = [];
 
 	for (let i = 0; i < colors.length; i++) {
 		const color = colors[i];
-		const left = remaining.size;
+		const left = g.aliveCount;
 		const colorsLeft = colors.length - i;
 		if (left === 0) {
 			return null;
@@ -156,29 +251,34 @@ function carveSeparatePaths(
 
 		const isLast = i === colors.length - 1;
 		if (isLast) {
-			const keys = coverRemaining([...remaining], rng);
-			if (!keys) {
+			const idxs = coverRemainingIndexed(g, rng);
+			if (!idxs) {
 				return null;
 			}
-			remaining.clear();
 			paths.push({
 				color,
-				coords: keys.map(axialFromKey),
+				coords: idxs.map((idx) => g.coords[idx]),
 			});
 			break;
 		}
 
 		const target = Math.max(2, Math.floor(left / colorsLeft));
-		const start = rngPick(rng, [...remaining]);
-		const keys = growPath(start, remaining, rng, target);
+		const aliveIdx: number[] = [];
+		for (let k = 0; k < g.n; k++) {
+			if (g.alive[k]) {
+				aliveIdx.push(k);
+			}
+		}
+		const start = aliveIdx[rngInt(rng, aliveIdx.length)];
+		const idxs = growPathIndexed(g, start, rng, target);
 
-		if (keys.length < 2 || !isConnected(remaining)) {
+		if (idxs.length < 2 || !carveConnected(g)) {
 			return null;
 		}
 
 		paths.push({
 			color,
-			coords: keys.map(axialFromKey),
+			coords: idxs.map((idx) => g.coords[idx]),
 		});
 	}
 
@@ -288,6 +388,7 @@ function pickBestPaths(
 ): Path[] | null {
 	let best: Path[] | null = null;
 	let bestScore = -1;
+	const goodEnough = colorCount * 35;
 
 	for (let attempt = 0; attempt < PATH_ATTEMPTS; attempt++) {
 		const paths = carveSeparatePaths(cellKeys, colorCount, rng);
@@ -298,6 +399,9 @@ function pickBestPaths(
 		if (score > bestScore) {
 			bestScore = score;
 			best = paths;
+			if (bestScore >= goodEnough && attempt >= 4) {
+				break;
+			}
 		}
 	}
 
@@ -369,8 +473,7 @@ function applyAllDirs(cells: Cell[], paths: Path[]): Cell[] {
 
 /**
  * 向きを減らしていき、別解が出ないギリギリまで残す。
- * 削除順を変えて何度も探索し、より少ない向きを採用する。
- * 判定は整数盤＋チャンク二分探索で高速化。
+ * 削除順を変えて探索し、より少ない向きを採用する。
  */
 function stripDirsToUnique(
 	board: Board,
@@ -397,57 +500,55 @@ function stripDirsToUnique(
 		return board;
 	}
 
-	const kept = new Set(dirIndices);
-	const cache = new Map<string, boolean>();
+	const cache = new Map<bigint, boolean>();
+	const deadline = Date.now() + Math.min(420, 180 + dirIndices.length * 3);
 
-	function sig(): string {
-		let out = "";
-		for (const i of dirIndices) {
-			out += kept.has(i) ? "1" : "0";
-		}
-		return out;
+	function timeUp() {
+		return Date.now() >= deadline;
 	}
 
-	/** 別解なし＆探索完了なら可。打ち切りは不可。向きが多いほど低予算で足りる。 */
+	/** 別解あり、または探索未完了なら不可（削りすぎ防止） */
 	function allows(): boolean {
-		const key = sig();
-		const hit = cache.get(key);
+		if (timeUp()) {
+			return false;
+		}
+		const bits = checker.bits;
+		const hit = cache.get(bits);
 		if (hit !== undefined) {
 			return hit;
 		}
-		checker.setKeptIndices(kept);
-		const budget = kept.size > 40 ? 20_000 : kept.size > 20 ? 35_000 : 55_000;
-		const { unique } = checker.isUnique(budget);
-		cache.set(key, unique);
+		let pop = 0;
+		let x = bits;
+		while (x > 0n) {
+			pop += 1;
+			x &= x - 1n;
+		}
+		const budget =
+			pop > 40 ? 12_000 : pop > 25 ? 20_000 : pop > 15 ? 32_000 : 48_000;
+		const { unique } = checker.isUnique(budget, deadline);
+		cache.set(bits, unique);
 		return unique;
 	}
 
+	// start full
+	checker.setKeptIndices(dirIndices);
 	if (!allows()) {
 		return board;
 	}
 
-	function tryRemoveAll(indices: number[]): boolean {
+	function stripChunk(indices: number[]) {
+		if (indices.length === 0 || timeUp()) {
+			return;
+		}
+		const snapshot = checker.bits;
 		for (const i of indices) {
-			kept.delete(i);
+			checker.setDirBit(i, false);
 		}
 		if (allows()) {
-			return true;
-		}
-		for (const i of indices) {
-			kept.add(i);
-		}
-		return false;
-	}
-
-	/** チャンクをまとめて試し、だめなら二分探索で削れる分だけ削る */
-	function stripChunk(indices: number[]) {
-		if (indices.length === 0) {
 			return;
 		}
-		if (tryRemoveAll(indices)) {
-			return;
-		}
-		if (indices.length === 1) {
+		checker.restoreBits(snapshot);
+		if (indices.length === 1 || timeUp()) {
 			return;
 		}
 		const mid = indices.length >> 1;
@@ -458,90 +559,98 @@ function stripDirsToUnique(
 	function greedyPolish() {
 		let progress = true;
 		let rounds = 0;
-		while (progress && rounds < 2) {
+		while (progress && rounds < 2 && !timeUp()) {
 			rounds += 1;
 			progress = false;
-			for (const i of rngShuffle(rng, [...kept])) {
-				kept.delete(i);
+			for (const i of rngShuffle(rng, dirIndices)) {
+				if (timeUp()) {
+					return;
+				}
+				if (!checker.flat.hasDirs[i]) {
+					continue;
+				}
+				const prev = checker.clearDirBit(i);
 				if (allows()) {
 					progress = true;
 				} else {
-					kept.add(i);
+					checker.restoreBits(prev);
 				}
 			}
 		}
 	}
 
-	let best = new Set(kept);
-	const restarts = Math.min(
-		3,
-		Math.max(2, Math.ceil(24 / Math.sqrt(dirIndices.length))),
-	);
+	let bestBits = checker.bits;
+	let bestPop = dirIndices.length;
 
-	for (let r = 0; r < restarts; r++) {
-		kept.clear();
-		for (const i of dirIndices) {
-			kept.add(i);
+	function popcount(bits: bigint): number {
+		let n = 0;
+		let x = bits;
+		while (x > 0n) {
+			n += 1;
+			x &= x - 1n;
 		}
+		return n;
+	}
+
+	for (let r = 0; r < 2 && !timeUp(); r++) {
+		checker.setKeptIndices(dirIndices);
 		const order = rngShuffle(rng, dirIndices);
-		// 大きめチャンクから削る（判定回数を対数的に）
-		const chunkSize = Math.max(4, Math.ceil(order.length / 6));
-		for (let i = 0; i < order.length; i += chunkSize) {
+		const chunkSize = Math.max(5, Math.ceil(order.length / 5));
+		for (let i = 0; i < order.length && !timeUp(); i += chunkSize) {
 			stripChunk(order.slice(i, i + chunkSize));
 		}
 		greedyPolish();
 
-		// ペア少し
-		for (let t = 0; t < Math.min(8, kept.size); t++) {
-			const list = [...kept];
-			if (list.length < 2) {
-				break;
+		const on: number[] = [];
+		for (const i of dirIndices) {
+			if (checker.flat.hasDirs[i]) {
+				on.push(i);
 			}
-			const a = list[rngInt(rng, list.length)];
-			const b = list[rngInt(rng, list.length)];
-			if (a === b) {
-				continue;
+		}
+		if (on.length >= 2 && !timeUp()) {
+			const a = on[rngInt(rng, on.length)];
+			const b = on[rngInt(rng, on.length)];
+			if (a !== b) {
+				const snap = checker.bits;
+				checker.setDirBit(a, false);
+				checker.setDirBit(b, false);
+				if (allows()) {
+					greedyPolish();
+				} else {
+					checker.restoreBits(snap);
+				}
 			}
-			kept.delete(a);
-			kept.delete(b);
-			if (allows()) {
-				greedyPolish();
-				break;
-			}
-			kept.add(a);
-			kept.add(b);
 		}
 
-		if (kept.size < best.size) {
-			best = new Set(kept);
+		const pop = popcount(checker.bits);
+		if (pop < bestPop) {
+			bestPop = pop;
+			bestBits = checker.bits;
 		}
 	}
 
-	kept.clear();
-	for (const i of best) {
-		kept.add(i);
-	}
-	checker.setKeptIndices(kept);
-
-	// 最終確認: 別解が実際に見つかったときだけ向きを足す
-	let check = checker.isUnique(80_000);
-	if (check.alternate) {
-		for (const i of rngShuffle(rng, dirIndices)) {
-			if (kept.has(i)) {
-				continue;
-			}
-			kept.add(i);
-			checker.setKeptIndices(kept);
-			check = checker.isUnique(80_000);
-			if (!check.alternate) {
-				break;
+	checker.restoreBits(bestBits);
+	// 削り中に一意確認済み。最終は別解の有無だけ低予算で見て、あれば足す。
+	{
+		const { alternate } = checker.isUnique(20_000);
+		if (alternate) {
+			for (const i of rngShuffle(rng, dirIndices)) {
+				if (checker.flat.hasDirs[i]) {
+					continue;
+				}
+				checker.setDirBit(i, true);
+				if (!checker.isUnique(20_000).alternate) {
+					break;
+				}
 			}
 		}
 	}
 
 	const keptKeys = new Set<string>();
-	for (const i of kept) {
-		keptKeys.add(checker.flat.keys[i]);
+	for (const i of dirIndices) {
+		if (checker.flat.hasDirs[i]) {
+			keptKeys.add(checker.flat.keys[i]);
+		}
 	}
 
 	return {
