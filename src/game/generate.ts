@@ -2,15 +2,46 @@ import type { Board } from "./board";
 import type { Cell } from "./cell";
 import { COLORS, type Color } from "./color";
 import { type Difficulty, difficultyForTier } from "./difficulty";
-import { dirBetween } from "./hex";
+import { dirBetween, hexDistance } from "./hex";
 import { createRng, rngPick, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
+import { isUniqueSolution } from "./uniqueness";
 
 type Coord = { x: number; y: number };
 type Path = { color: Color; coords: Coord[] };
 
-const MAX_ATTEMPTS = 80;
+const MAX_ATTEMPTS = 200;
+const PATH_ATTEMPTS = 80;
 
+function degreeIn(key: string, remaining: Set<string>): number {
+	const { x, y } = axialFromKey(key);
+	return neighborKeys(x, y).filter((n) => remaining.has(n)).length;
+}
+
+function isConnected(keys: Set<string>): boolean {
+	if (keys.size <= 1) {
+		return true;
+	}
+	const start = keys.values().next().value as string;
+	const seen = new Set<string>();
+	const stack = [start];
+	while (stack.length > 0) {
+		const key = stack.pop();
+		if (!key || seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		const { x, y } = axialFromKey(key);
+		for (const n of neighborKeys(x, y)) {
+			if (keys.has(n) && !seen.has(n)) {
+				stack.push(n);
+			}
+		}
+	}
+	return seen.size === keys.size;
+}
+
+/** 残りが連結なまま進む経路（大きい盤で分断しない） */
 function growPath(
 	startKey: string,
 	remaining: Set<string>,
@@ -22,13 +53,40 @@ function growPath(
 
 	while (path.length < maxLength) {
 		const tip = axialFromKey(path[path.length - 1]);
-		const options = neighborKeys(tip.x, tip.y).filter((key) =>
+		let options = neighborKeys(tip.x, tip.y).filter((key) =>
 			remaining.has(key),
 		);
 		if (options.length === 0) {
 			break;
 		}
-		const next = rngPick(rng, options);
+
+		// 取ったあとも残りが連結なものだけ候補に（最後の1個は除く）
+		const safe = options.filter((key) => {
+			remaining.delete(key);
+			const ok = isConnected(remaining);
+			remaining.add(key);
+			return ok;
+		});
+		if (safe.length > 0) {
+			options = safe;
+		}
+
+		const prev =
+			path.length >= 2 ? axialFromKey(path[path.length - 2]) : undefined;
+		const scored = options.map((key) => {
+			const next = axialFromKey(key);
+			let bend = 0;
+			if (prev) {
+				const d1 = dirBetween(tip, prev);
+				const d2 = dirBetween(tip, next);
+				if (d1 && d2 && d1 !== d2) {
+					bend = 1;
+				}
+			}
+			return { key, score: bend * 2 + rng() };
+		});
+		scored.sort((a, b) => b.score - a.score);
+		const next = scored[0].key;
 		path.push(next);
 		remaining.delete(next);
 	}
@@ -36,13 +94,54 @@ function growPath(
 	return path;
 }
 
-function partitionCells(
+/** 残マスをすべて通る経路（最後の色用） */
+function coverRemaining(
+	cellKeys: string[],
+	rng: () => number,
+): string[] | null {
+	if (cellKeys.length < 2) {
+		return null;
+	}
+	for (let attempt = 0; attempt < 24; attempt++) {
+		const start = rngPick(rng, cellKeys);
+		const remaining = new Set(cellKeys);
+		remaining.delete(start);
+		const path = [start];
+		let stuck = false;
+		while (remaining.size > 0) {
+			const tip = axialFromKey(path[path.length - 1]);
+			const options = rngShuffle(
+				rng,
+				neighborKeys(tip.x, tip.y).filter((key) => remaining.has(key)),
+			);
+			if (options.length === 0) {
+				stuck = true;
+				break;
+			}
+			options.sort((a, b) => degreeIn(a, remaining) - degreeIn(b, remaining));
+			const next = options[0];
+			path.push(next);
+			remaining.delete(next);
+		}
+		if (!stuck && path.length === cellKeys.length) {
+			return path;
+		}
+	}
+	return null;
+}
+
+/** 色ごとに別経路で全マスを分割する（1本パスの切断はしない） */
+function carveSeparatePaths(
 	cellKeys: string[],
 	colorCount: number,
 	rng: () => number,
 ): Path[] | null {
-	const remaining = new Set(cellKeys);
 	const colors = COLORS.slice(0, colorCount);
+	if (cellKeys.length < colorCount * 2) {
+		return null;
+	}
+
+	const remaining = new Set(cellKeys);
 	const paths: Path[] = [];
 
 	for (let i = 0; i < colors.length; i++) {
@@ -54,15 +153,24 @@ function partitionCells(
 		}
 
 		const isLast = i === colors.length - 1;
-		const target = isLast ? left : Math.max(2, Math.floor(left / colorsLeft));
+		if (isLast) {
+			const keys = coverRemaining([...remaining], rng);
+			if (!keys) {
+				return null;
+			}
+			remaining.clear();
+			paths.push({
+				color,
+				coords: keys.map(axialFromKey),
+			});
+			break;
+		}
 
+		const target = Math.max(2, Math.floor(left / colorsLeft));
 		const start = rngPick(rng, [...remaining]);
 		const keys = growPath(start, remaining, rng, target);
 
-		if (keys.length < 2) {
-			return null;
-		}
-		if (isLast && remaining.size > 0) {
+		if (keys.length < 2 || !isConnected(remaining)) {
 			return null;
 		}
 
@@ -73,6 +181,125 @@ function partitionCells(
 	}
 
 	return paths;
+}
+
+/** 2線分が端点以外で交差するか（axial を平面座標とみなす） */
+function segmentsCross(a0: Coord, a1: Coord, b0: Coord, b1: Coord): boolean {
+	const ends = new Set([
+		axialKey(a0.x, a0.y),
+		axialKey(a1.x, a1.y),
+		axialKey(b0.x, b0.y),
+		axialKey(b1.x, b1.y),
+	]);
+	if (ends.size < 4) {
+		return false;
+	}
+
+	function orient(p: Coord, q: Coord, r: Coord): number {
+		return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+	}
+
+	function onSeg(p: Coord, q: Coord, r: Coord): boolean {
+		return (
+			Math.min(p.x, r.x) <= q.x &&
+			q.x <= Math.max(p.x, r.x) &&
+			Math.min(p.y, r.y) <= q.y &&
+			q.y <= Math.max(p.y, r.y)
+		);
+	}
+
+	const o1 = orient(a0, a1, b0);
+	const o2 = orient(a0, a1, b1);
+	const o3 = orient(b0, b1, a0);
+	const o4 = orient(b0, b1, a1);
+
+	if (o1 === 0 && onSeg(a0, b0, a1)) {
+		return true;
+	}
+	if (o2 === 0 && onSeg(a0, b1, a1)) {
+		return true;
+	}
+	if (o3 === 0 && onSeg(b0, a0, b1)) {
+		return true;
+	}
+	if (o4 === 0 && onSeg(b0, a1, b1)) {
+		return true;
+	}
+
+	return o1 * o2 < 0 && o3 * o4 < 0;
+}
+
+function scorePathSet(paths: Path[]): number {
+	let crosses = 0;
+	for (let i = 0; i < paths.length; i++) {
+		const a0 = paths[i].coords[0];
+		const a1 = paths[i].coords[paths[i].coords.length - 1];
+		for (let j = i + 1; j < paths.length; j++) {
+			const b0 = paths[j].coords[0];
+			const b1 = paths[j].coords[paths[j].coords.length - 1];
+			if (segmentsCross(a0, a1, b0, b1)) {
+				crosses += 1;
+			}
+		}
+	}
+
+	const owner = new Map<string, Color>();
+	for (const path of paths) {
+		for (const coord of path.coords) {
+			owner.set(axialKey(coord.x, coord.y), path.color);
+		}
+	}
+
+	let boundary = 0;
+	let bends = 0;
+	for (const path of paths) {
+		for (let i = 1; i < path.coords.length - 1; i++) {
+			const prev = path.coords[i - 1];
+			const curr = path.coords[i];
+			const next = path.coords[i + 1];
+			const a = dirBetween(curr, prev);
+			const b = dirBetween(curr, next);
+			if (a && b && a !== b) {
+				bends += 1;
+			}
+			for (const key of neighborKeys(curr.x, curr.y)) {
+				const other = owner.get(key);
+				if (other && other !== path.color) {
+					boundary += 1;
+				}
+			}
+		}
+		const start = path.coords[0];
+		const goal = path.coords[path.coords.length - 1];
+		// 近い S/G なのにパスが長い＝遠回り
+		const detour = path.coords.length - 1 - hexDistance(start, goal);
+		bends += Math.max(0, detour);
+	}
+
+	return crosses * 20 + boundary + bends;
+}
+
+function pickBestPaths(
+	cellKeys: string[],
+	colorCount: number,
+	rng: () => number,
+): Path[] | null {
+	let best: Path[] | null = null;
+	let bestScore = -1;
+
+	for (let attempt = 0; attempt < PATH_ATTEMPTS; attempt++) {
+		const paths = carveSeparatePaths(cellKeys, colorCount, rng);
+		if (!paths) {
+			continue;
+		}
+		const score = scorePathSet(paths);
+		if (score > bestScore) {
+			bestScore = score;
+			best = paths;
+		}
+	}
+
+	return best;
 }
 
 function removeHoles(
@@ -111,24 +338,11 @@ function applyEndpoints(cells: Cell[], paths: Path[]): Cell[] {
 	return [...byKey.values()];
 }
 
-function applyDirs(
-	cells: Cell[],
-	paths: Path[],
-	dirCount: number,
-	rng: () => number,
-): Cell[] {
-	if (dirCount <= 0) {
-		return cells;
-	}
-
+/** 正解パス上の空きマス（端点以外）すべてに向きを載せる */
+function applyAllDirs(cells: Cell[], paths: Path[]): Cell[] {
 	const byKey = new Map(
 		cells.map((cell) => [axialKey(cell.x, cell.y), { ...cell }]),
 	);
-	const candidates: {
-		key: string;
-		a: NonNullable<Cell["dirs"]>["a"];
-		b: NonNullable<Cell["dirs"]>["b"];
-	}[] = [];
 
 	for (const path of paths) {
 		for (let i = 1; i < path.coords.length - 1; i++) {
@@ -140,19 +354,55 @@ function applyDirs(
 			if (!a || !b) {
 				continue;
 			}
-			candidates.push({ key: axialKey(curr.x, curr.y), a, b });
+			const cell = byKey.get(axialKey(curr.x, curr.y));
+			if (!cell || cell.start || cell.goal) {
+				continue;
+			}
+			cell.dirs = { a, b };
 		}
-	}
-
-	for (const item of rngShuffle(rng, candidates).slice(0, dirCount)) {
-		const cell = byKey.get(item.key);
-		if (!cell || cell.start || cell.goal || cell.number) {
-			continue;
-		}
-		cell.dirs = { a: item.a, b: item.b };
 	}
 
 	return [...byKey.values()];
+}
+
+/**
+ * 向きを減らしていき、別解が出ないギリギリまで残す。
+ * 残数の多少は問わず、足りなくてもやり直さない。
+ */
+function stripDirsToUnique(board: Board, rng: () => number): Board {
+	const cells = board.cells.map((cell) => ({ ...cell }));
+	const byKey = new Map(cells.map((cell) => [axialKey(cell.x, cell.y), cell]));
+
+	const dirKeys = rngShuffle(
+		rng,
+		cells.filter((cell) => cell.dirs).map((cell) => axialKey(cell.x, cell.y)),
+	);
+
+	function snapshot(): Board {
+		return {
+			cells: [...byKey.values()],
+			lines: board.lines,
+		};
+	}
+
+	// 全向きありなら一意のはず。壊れていたらそのまま返す
+	if (!isUniqueSolution(snapshot())) {
+		return snapshot();
+	}
+
+	for (const key of dirKeys) {
+		const cell = byKey.get(key);
+		if (!cell?.dirs) {
+			continue;
+		}
+		const saved = cell.dirs;
+		cell.dirs = undefined;
+		if (!isUniqueSolution(snapshot())) {
+			cell.dirs = saved;
+		}
+	}
+
+	return snapshot();
 }
 
 function applyNumbers(
@@ -169,48 +419,28 @@ function applyNumbers(
 	);
 
 	for (const path of paths) {
+		const start = path.coords[0];
 		const internals = path.coords.slice(1, -1);
 		if (internals.length === 0) {
 			continue;
 		}
 		const count = Math.min(numbersPerColor, internals.length);
-		// 経路順を保ったまま、だいたい等間隔で選ぶ
-		const picks: Coord[] = [];
-		for (let i = 0; i < count; i++) {
-			const index = Math.floor(((i + 1) * internals.length) / (count + 1));
-			picks.push(internals[Math.min(index, internals.length - 1)]);
-		}
+		const ranked = internals.map((coord, i) => {
+			const pathIndex = i + 1;
+			const detour = pathIndex - hexDistance(start, coord);
+			return { coord, pathIndex, detour };
+		});
+		ranked.sort((a, b) => b.detour - a.detour || b.pathIndex - a.pathIndex);
+		const chosen = ranked
+			.slice(0, count)
+			.sort((a, b) => a.pathIndex - b.pathIndex);
 
-		const seen = new Set<string>();
 		let value = 1;
-		for (const coord of picks) {
-			const key = axialKey(coord.x, coord.y);
-			if (seen.has(key)) {
+		for (const item of chosen) {
+			const cell = byKey.get(axialKey(item.coord.x, item.coord.y));
+			if (!cell || cell.start || cell.goal || cell.dirs) {
 				continue;
 			}
-			seen.add(key);
-			const cell = byKey.get(key);
-			if (!cell || cell.start || cell.goal) {
-				continue;
-			}
-			cell.number = { color: path.color, value };
-			value += 1;
-		}
-
-		// 重複で足りなければ、経路の手前から順に補充（ランダムにしない）
-		for (const coord of internals) {
-			if (value > count) {
-				break;
-			}
-			const key = axialKey(coord.x, coord.y);
-			if (seen.has(key)) {
-				continue;
-			}
-			const cell = byKey.get(key);
-			if (!cell || cell.start || cell.goal || cell.number) {
-				continue;
-			}
-			seen.add(key);
 			cell.number = { color: path.color, value };
 			value += 1;
 		}
@@ -219,21 +449,34 @@ function applyNumbers(
 	return [...byKey.values()];
 }
 
-function buildFromPaths(
+function buildBoard(
 	baseCells: Cell[],
 	paths: Path[],
 	difficulty: Difficulty,
 	rng: () => number,
 ): Board {
-	// 数字を先に置き、向きは残りのマスへ（経路上の番号順を壊さない）
 	let cells = applyEndpoints(baseCells, paths);
-	cells = applyNumbers(cells, paths, difficulty.numbersPerColor);
-	cells = applyDirs(cells, paths, difficulty.dirCount, rng);
+	// 番号は向きより先だと向き全載せと衝突するので、
+	// 高難易度では numbersPerColor=0。付ける場合は向き削りの後でもよいが、
+	// 仕様どおり高難易度は番号なし。
+	cells = applyAllDirs(cells, paths);
 
-	return {
+	let board: Board = {
 		cells,
 		lines: paths.map((path) => ({ color: path.color, coords: [] })),
 	};
+	board = stripDirsToUnique(board, rng);
+
+	if (difficulty.numbersPerColor > 0) {
+		const withNums = applyNumbers(
+			board.cells,
+			paths,
+			difficulty.numbersPerColor,
+		);
+		board = { ...board, cells: withNums };
+	}
+
+	return board;
 }
 
 function tryGenerate(difficulty: Difficulty, rng: () => number): Board | null {
@@ -244,30 +487,24 @@ function tryGenerate(difficulty: Difficulty, rng: () => number): Board | null {
 	}
 
 	const keys = cells.map((cell) => axialKey(cell.x, cell.y));
-	const paths = partitionCells(keys, difficulty.colorCount, rng);
+	const paths = pickBestPaths(keys, difficulty.colorCount, rng);
 	if (!paths) {
 		return null;
 	}
 
-	return buildFromPaths(cells, paths, difficulty, rng);
+	return buildBoard(cells, paths, difficulty, rng);
 }
 
 function fallbackBoard(seed: number): Board {
 	const rng = createRng(seed ^ 0xabc);
-	const cells = hexDisk(1);
+	const cells = hexDisk(2);
 	const keys = cells.map((cell) => axialKey(cell.x, cell.y));
-	const paths = partitionCells(keys, 1, rng);
+	const paths = carveSeparatePaths(keys, 2, rng);
 	if (paths) {
-		return buildFromPaths(
+		return buildBoard(
 			cells,
 			paths,
-			{
-				radius: 1,
-				colorCount: 1,
-				holeCount: 0,
-				dirCount: 0,
-				numbersPerColor: 0,
-			},
+			{ radius: 2, colorCount: 2, holeCount: 0, numbersPerColor: 0 },
 			rng,
 		);
 	}

@@ -32,3 +32,14 @@ export function isAdjacent(
 ): boolean {
 	return dirBetween(a, b) !== null;
 }
+
+/** axial 座標の六角距離 */
+export function hexDistance(
+	a: { x: number; y: number },
+	b: { x: number; y: number },
+): number {
+	const dq = a.x - b.x;
+	const dr = a.y - b.y;
+	const ds = -dq - dr;
+	return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
+}

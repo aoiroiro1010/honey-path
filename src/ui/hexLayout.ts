@@ -1,4 +1,4 @@
-export const CELL_SIZE = 56;
+export const CELL_SIZE = 30;
 export const CELL_PAD = 2;
 export const CELL_VIEW_SIZE = (CELL_SIZE + CELL_PAD) * 2;
 
