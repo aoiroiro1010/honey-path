@@ -159,7 +159,6 @@ function applyNumbers(
 	cells: Cell[],
 	paths: Path[],
 	numbersPerColor: number,
-	rng: () => number,
 ): Cell[] {
 	if (numbersPerColor <= 0) {
 		return cells;
@@ -175,13 +174,13 @@ function applyNumbers(
 			continue;
 		}
 		const count = Math.min(numbersPerColor, internals.length);
-		// 経路上の順序を保ったまま、均等めに選ぶ
+		// 経路順を保ったまま、だいたい等間隔で選ぶ
 		const picks: Coord[] = [];
 		for (let i = 0; i < count; i++) {
 			const index = Math.floor(((i + 1) * internals.length) / (count + 1));
 			picks.push(internals[Math.min(index, internals.length - 1)]);
 		}
-		// 重複を避けつつ出現順に 1..n
+
 		const seen = new Set<string>();
 		let value = 1;
 		for (const coord of picks) {
@@ -191,27 +190,29 @@ function applyNumbers(
 			}
 			seen.add(key);
 			const cell = byKey.get(key);
-			if (!cell || cell.start || cell.goal || cell.dirs) {
+			if (!cell || cell.start || cell.goal) {
 				continue;
 			}
 			cell.number = { color: path.color, value };
 			value += 1;
 		}
-		// 足りなければランダム補充
-		while (value <= count) {
-			const open = internals.filter((coord) => {
-				const cell = byKey.get(axialKey(coord.x, coord.y));
-				return cell && !cell.number && !cell.dirs;
-			});
-			if (open.length === 0) {
+
+		// 重複で足りなければ、経路の手前から順に補充（ランダムにしない）
+		for (const coord of internals) {
+			if (value > count) {
 				break;
 			}
-			const coord = rngPick(rng, open);
-			const cell = byKey.get(axialKey(coord.x, coord.y));
-			if (cell) {
-				cell.number = { color: path.color, value };
-				value += 1;
+			const key = axialKey(coord.x, coord.y);
+			if (seen.has(key)) {
+				continue;
 			}
+			const cell = byKey.get(key);
+			if (!cell || cell.start || cell.goal || cell.number) {
+				continue;
+			}
+			seen.add(key);
+			cell.number = { color: path.color, value };
+			value += 1;
 		}
 	}
 
@@ -224,9 +225,10 @@ function buildFromPaths(
 	difficulty: Difficulty,
 	rng: () => number,
 ): Board {
+	// 数字を先に置き、向きは残りのマスへ（経路上の番号順を壊さない）
 	let cells = applyEndpoints(baseCells, paths);
+	cells = applyNumbers(cells, paths, difficulty.numbersPerColor);
 	cells = applyDirs(cells, paths, difficulty.dirCount, rng);
-	cells = applyNumbers(cells, paths, difficulty.numbersPerColor, rng);
 
 	return {
 		cells,
