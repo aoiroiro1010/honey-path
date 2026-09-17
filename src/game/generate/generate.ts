@@ -5,13 +5,13 @@ import { dirBetween, hexDistance } from "../model/hex";
 import { type Difficulty, difficultyForTier } from "./difficulty";
 import { createRng, rngInt, rngPick, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
-import { countSolutions, hasAlternateSolution } from "./uniqueness";
+import { createUniquenessChecker } from "./uniqueness";
 
 type Coord = { x: number; y: number };
 type Path = { color: Color; coords: Coord[] };
 
-const MAX_ATTEMPTS = 200;
-const PATH_ATTEMPTS = 80;
+const MAX_ATTEMPTS = 100;
+const PATH_ATTEMPTS = 40;
 
 function degreeIn(key: string, remaining: Set<string>): number {
 	const { x, y } = axialFromKey(key);
@@ -60,15 +60,17 @@ function growPath(
 			break;
 		}
 
-		// 取ったあとも残りが連結なものだけ候補に（最後の1個は除く）
-		const safe = options.filter((key) => {
-			remaining.delete(key);
-			const ok = isConnected(remaining);
-			remaining.add(key);
-			return ok;
-		});
-		if (safe.length > 0) {
-			options = safe;
+		// 取ったあとも残りが連結なものだけ候補に（候補が複数のときだけ検査）
+		if (options.length > 1 && remaining.size > 8) {
+			const safe = options.filter((key) => {
+				remaining.delete(key);
+				const ok = isConnected(remaining);
+				remaining.add(key);
+				return ok;
+			});
+			if (safe.length > 0) {
+				options = safe;
+			}
 		}
 
 		const prev =
@@ -367,8 +369,8 @@ function applyAllDirs(cells: Cell[], paths: Path[]): Cell[] {
 
 /**
  * 向きを減らしていき、別解が出ないギリギリまで残す。
- * 削除順・追加順・キックを変えて探索し、より少ない向きを採用する。
- * 残数の多少は問わず、足りなくても盤を捨てない。
+ * 削除順を変えて何度も探索し、より少ない向きを採用する。
+ * 判定は整数盤＋チャンク二分探索で高速化。
  */
 function stripDirsToUnique(
 	board: Board,
@@ -381,9 +383,7 @@ function stripDirsToUnique(
 			fullDirs.set(axialKey(cell.x, cell.y), { ...cell.dirs });
 		}
 	}
-
-	const allKeys = [...fullDirs.keys()];
-	if (allKeys.length === 0) {
+	if (fullDirs.size === 0) {
 		return board;
 	}
 
@@ -391,229 +391,173 @@ function stripDirsToUnique(
 		color: path.color,
 		coords: path.coords,
 	}));
-
-	function makeBoard(kept: Set<string>): Board {
-		return {
-			cells: board.cells.map((cell) => {
-				const key = axialKey(cell.x, cell.y);
-				const next = { ...cell };
-				const dirs = fullDirs.get(key);
-				if (kept.has(key) && dirs) {
-					next.dirs = { ...dirs };
-				} else {
-					delete next.dirs;
-				}
-				return next;
-			}),
-			lines: board.lines,
-		};
+	const checker = createUniquenessChecker(board, intended);
+	const { dirIndices } = checker;
+	if (dirIndices.length === 0) {
+		return board;
 	}
 
-	function signature(kept: Set<string>): string {
+	const kept = new Set(dirIndices);
+	const cache = new Map<string, boolean>();
+
+	function sig(): string {
 		let out = "";
-		for (const key of allKeys) {
-			out += kept.has(key) ? "1" : "0";
+		for (const i of dirIndices) {
+			out += kept.has(i) ? "1" : "0";
 		}
 		return out;
 	}
 
-	const cache = new Map<string, boolean>();
-	/**
-	 * 別解が見つかったら不可。
-	 * 探索が尽きて別解なしなら可。打ち切りで未確認なら不可（削りすぎ防止）。
-	 */
-	function allowsStrip(kept: Set<string>): boolean {
-		const sig = signature(kept);
-		const hit = cache.get(sig);
+	/** 別解なし＆探索完了なら可。打ち切りは不可。向きが多いほど低予算で足りる。 */
+	function allows(): boolean {
+		const key = sig();
+		const hit = cache.get(key);
 		if (hit !== undefined) {
 			return hit;
 		}
-		const board = makeBoard(kept);
-		const alt = hasAlternateSolution(board, intended, 100_000);
-		if (alt.alternate) {
-			cache.set(sig, false);
-			return false;
+		checker.setKeptIndices(kept);
+		const budget = kept.size > 40 ? 20_000 : kept.size > 20 ? 35_000 : 55_000;
+		const { unique } = checker.isUnique(budget);
+		cache.set(key, unique);
+		return unique;
+	}
+
+	if (!allows()) {
+		return board;
+	}
+
+	function tryRemoveAll(indices: number[]): boolean {
+		for (const i of indices) {
+			kept.delete(i);
 		}
-		if (alt.exhausted) {
-			cache.set(sig, true);
+		if (allows()) {
 			return true;
 		}
-		const counted = countSolutions(board, 2, 120_000);
-		if (counted.count >= 2) {
-			cache.set(sig, false);
-			return false;
+		for (const i of indices) {
+			kept.add(i);
 		}
-		if (counted.count === 1 && counted.exhausted) {
-			cache.set(sig, true);
-			return true;
-		}
-		// 未確認: 削らない
-		cache.set(sig, false);
 		return false;
 	}
 
-	const fullKept = new Set(allKeys);
-	if (!allowsStrip(fullKept)) {
-		return makeBoard(fullKept);
-	}
-
-	const deadline = Date.now() + Math.min(18_000, 3_500 + allKeys.length * 150);
-	const STRIP_RESTARTS = 5;
-	const ADD_RESTARTS = 3;
-	const KICK_ROUNDS = 4;
-	const PAIR_TRIES = Math.min(40, allKeys.length * 3);
-
-	let bestKept = new Set(allKeys);
-
-	function consider(kept: Set<string>) {
-		if (kept.size < bestKept.size) {
-			bestKept = new Set(kept);
+	/** チャンクをまとめて試し、だめなら二分探索で削れる分だけ削る */
+	function stripChunk(indices: number[]) {
+		if (indices.length === 0) {
+			return;
 		}
+		if (tryRemoveAll(indices)) {
+			return;
+		}
+		if (indices.length === 1) {
+			return;
+		}
+		const mid = indices.length >> 1;
+		stripChunk(indices.slice(0, mid));
+		stripChunk(indices.slice(mid));
 	}
 
-	function timeUp() {
-		return Date.now() >= deadline;
-	}
-
-	function greedyStrip(initial: Set<string>): Set<string> {
-		const kept = new Set(initial);
+	function greedyPolish() {
 		let progress = true;
-		while (progress && !timeUp()) {
+		let rounds = 0;
+		while (progress && rounds < 2) {
+			rounds += 1;
 			progress = false;
-			for (const key of rngShuffle(rng, [...kept])) {
-				if (timeUp()) {
-					break;
-				}
-				kept.delete(key);
-				if (allowsStrip(kept)) {
+			for (const i of rngShuffle(rng, [...kept])) {
+				kept.delete(i);
+				if (allows()) {
 					progress = true;
 				} else {
-					kept.add(key);
+					kept.add(i);
 				}
 			}
 		}
-		return kept;
 	}
 
-	function tryPairs(kept: Set<string>): Set<string> {
-		let pairProgress = true;
-		let pairRounds = 0;
-		while (pairProgress && pairRounds < 4 && !timeUp()) {
-			pairRounds += 1;
-			pairProgress = false;
-			for (let t = 0; t < PAIR_TRIES; t++) {
-				if (timeUp()) {
-					return kept;
-				}
-				const list = [...kept];
-				if (list.length < 2) {
-					return kept;
-				}
-				const i = rngInt(rng, list.length);
-				let j = rngInt(rng, list.length - 1);
-				if (j >= i) {
-					j += 1;
-				}
-				const a = list[i];
-				const b = list[j];
-				kept.delete(a);
-				kept.delete(b);
-				if (allowsStrip(kept)) {
-					pairProgress = true;
-					break;
-				}
-				kept.add(a);
-				kept.add(b);
-			}
+	let best = new Set(kept);
+	const restarts = Math.min(
+		3,
+		Math.max(2, Math.ceil(24 / Math.sqrt(dirIndices.length))),
+	);
+
+	for (let r = 0; r < restarts; r++) {
+		kept.clear();
+		for (const i of dirIndices) {
+			kept.add(i);
 		}
-		return kept;
-	}
-
-	function repairNoAlternate(kept: Set<string>): Set<string> {
-		for (const key of rngShuffle(rng, allKeys)) {
-			if (allowsStrip(kept)) {
-				return kept;
-			}
-			kept.add(key);
+		const order = rngShuffle(rng, dirIndices);
+		// 大きめチャンクから削る（判定回数を対数的に）
+		const chunkSize = Math.max(4, Math.ceil(order.length / 6));
+		for (let i = 0; i < order.length; i += chunkSize) {
+			stripChunk(order.slice(i, i + chunkSize));
 		}
-		return kept;
-	}
+		greedyPolish();
 
-	function stripKept(initial: Set<string>): Set<string> {
-		let kept = greedyStrip(initial);
-		kept = tryPairs(kept);
-		kept = greedyStrip(kept);
-
-		for (let kick = 0; kick < KICK_ROUNDS && !timeUp(); kick++) {
-			if (kept.size < 3) {
+		// ペア少し
+		for (let t = 0; t < Math.min(8, kept.size); t++) {
+			const list = [...kept];
+			if (list.length < 2) {
 				break;
 			}
-			const snapshot = new Set(kept);
-			const removeCount = Math.min(kept.size - 1, 2 + rngInt(rng, 3));
-			for (const key of rngShuffle(rng, [...kept]).slice(0, removeCount)) {
-				kept.delete(key);
-			}
-			kept = repairNoAlternate(kept);
-			if (!allowsStrip(kept)) {
-				kept = snapshot;
+			const a = list[rngInt(rng, list.length)];
+			const b = list[rngInt(rng, list.length)];
+			if (a === b) {
 				continue;
 			}
-			kept = greedyStrip(kept);
-			kept = tryPairs(kept);
-			kept = greedyStrip(kept);
-			if (kept.size >= snapshot.size) {
-				kept = snapshot;
-			}
-		}
-
-		return kept;
-	}
-
-	for (let restart = 0; restart < STRIP_RESTARTS && !timeUp(); restart++) {
-		consider(stripKept(new Set(allKeys)));
-	}
-
-	for (let restart = 0; restart < ADD_RESTARTS && !timeUp(); restart++) {
-		const kept = new Set<string>();
-		for (const key of rngShuffle(rng, allKeys)) {
-			kept.add(key);
-			if (allowsStrip(kept)) {
+			kept.delete(a);
+			kept.delete(b);
+			if (allows()) {
+				greedyPolish();
 				break;
 			}
+			kept.add(a);
+			kept.add(b);
 		}
-		if (!allowsStrip(kept)) {
-			continue;
+
+		if (kept.size < best.size) {
+			best = new Set(kept);
 		}
-		consider(stripKept(kept));
 	}
 
-	// 最終確認: 別解がある／未確認なら向きを足して安定させる
-	const finalKept = new Set(bestKept);
-	function finalOk(kept: Set<string>): boolean {
-		const board = makeBoard(kept);
-		const alt = hasAlternateSolution(board, intended, 250_000);
-		if (alt.alternate) {
-			return false;
-		}
-		if (alt.exhausted) {
-			return true;
-		}
-		const counted = countSolutions(board, 2, 250_000);
-		return counted.count === 1 && counted.exhausted;
+	kept.clear();
+	for (const i of best) {
+		kept.add(i);
 	}
-	if (!finalOk(finalKept)) {
-		for (const key of rngShuffle(rng, allKeys)) {
-			if (finalKept.has(key)) {
+	checker.setKeptIndices(kept);
+
+	// 最終確認: 別解が実際に見つかったときだけ向きを足す
+	let check = checker.isUnique(80_000);
+	if (check.alternate) {
+		for (const i of rngShuffle(rng, dirIndices)) {
+			if (kept.has(i)) {
 				continue;
 			}
-			finalKept.add(key);
-			if (finalOk(finalKept)) {
+			kept.add(i);
+			checker.setKeptIndices(kept);
+			check = checker.isUnique(80_000);
+			if (!check.alternate) {
 				break;
 			}
 		}
 	}
 
-	return makeBoard(finalKept);
+	const keptKeys = new Set<string>();
+	for (const i of kept) {
+		keptKeys.add(checker.flat.keys[i]);
+	}
+
+	return {
+		cells: board.cells.map((cell) => {
+			const next = { ...cell };
+			const key = axialKey(cell.x, cell.y);
+			const dirs = fullDirs.get(key);
+			if (keptKeys.has(key) && dirs) {
+				next.dirs = { ...dirs };
+			} else {
+				delete next.dirs;
+			}
+			return next;
+		}),
+		lines: board.lines,
+	};
 }
 
 function applyNumbers(
