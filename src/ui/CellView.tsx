@@ -1,21 +1,31 @@
+import type { Cell } from "@/game/cell";
+import type { Color } from "@/game/color";
+import type { HexDir } from "@/game/hex";
+import { useId } from "react";
 import Svg, {
 	Circle,
+	ClipPath,
+	Defs,
+	G,
 	Polygon,
 	Polyline,
 	Text as SvgText,
 } from "react-native-svg";
-import type { Cell } from "@/game/cell";
-import type { Color } from "@/game/color";
-import type { HexDir } from "@/game/hex";
 
 import { COLOR_HEX } from "./palette";
 
 const SIZE = 56;
-const PAD = 4;
+const PAD = 2;
 const CX = SIZE + PAD;
 const CY = SIZE + PAD;
 const DIM = (SIZE + PAD) * 2;
-const LINE_WIDTH = SIZE * 0.18;
+const LINE_WIDTH = SIZE * 0.42;
+const RAIL_WIDTH = SIZE * 0.08;
+const MARK_R = SIZE * 0.6;
+
+const CELL_FILL = "#f4f4f5";
+const CELL_STROKE = "#d4d4d8";
+const DIRS_STROKE = "#52525b";
 
 const DIR_DEG: Record<HexDir, number> = {
 	R: 0,
@@ -57,41 +67,80 @@ function pointsToString(points: { x: number; y: number }[]): string {
 	return points.map((p) => `${p.x},${p.y}`).join(" ");
 }
 
+function pathPoints(a: HexDir, b?: HexDir): { x: number; y: number }[] {
+	if (b) {
+		return [edgePoint(a), { x: CX, y: CY }, edgePoint(b)];
+	}
+	return [edgePoint(a), { x: CX, y: CY }];
+}
+
+function Mark({ color, label }: { color: Color; label: string }) {
+	return (
+		<>
+			<Circle cx={CX} cy={CY} r={MARK_R} fill={COLOR_HEX[color]} />
+			<SvgText
+				x={CX}
+				y={CY + SIZE * 0.3}
+				textAnchor="middle"
+				fontSize={SIZE * 0.9}
+				fontWeight="700"
+				fill="#ffffff"
+			>
+				{label}
+			</SvgText>
+		</>
+	);
+}
+
 export function CellView({ cell, line }: Props) {
+	const clipId = `dirs-${useId().replace(/:/g, "")}`;
+	const points = hexPoints();
+
 	return (
 		<Svg width={DIM} height={DIM}>
+			<Defs>
+				<ClipPath id={clipId}>
+					<Polygon points={points} />
+				</ClipPath>
+			</Defs>
 			<Polygon
-				points={hexPoints()}
-				fill="#fffbeb"
-				stroke="#b45309"
-				strokeWidth={2}
+				points={points}
+				fill={CELL_FILL}
+				stroke={CELL_STROKE}
+				strokeWidth={1.5}
 			/>
 			{cell.dirs ? (
-				<Polyline
-					points={pointsToString([
-						edgePoint(cell.dirs.a),
-						{ x: CX, y: CY },
-						edgePoint(cell.dirs.b),
-					])}
-					fill="none"
-					stroke="#44403c"
-					strokeWidth={LINE_WIDTH}
-					strokeLinecap="round"
-					strokeLinejoin="round"
-				/>
+				<G clipPath={`url(#${clipId})`}>
+					<Polyline
+						points={pointsToString([
+							edgePoint(cell.dirs.a),
+							{ x: CX, y: CY },
+							edgePoint(cell.dirs.b),
+						])}
+						fill="none"
+						stroke={DIRS_STROKE}
+						strokeWidth={LINE_WIDTH + RAIL_WIDTH * 2}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+					<Polyline
+						points={pointsToString([
+							edgePoint(cell.dirs.a),
+							{ x: CX, y: CY },
+							edgePoint(cell.dirs.b),
+						])}
+						fill="none"
+						stroke={CELL_FILL}
+						strokeWidth={LINE_WIDTH}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</G>
 			) : null}
 			{line ? (
 				<>
 					<Polyline
-						points={pointsToString(
-							line.dirs.b
-								? [
-										edgePoint(line.dirs.a),
-										{ x: CX, y: CY },
-										edgePoint(line.dirs.b),
-									]
-								: [edgePoint(line.dirs.a), { x: CX, y: CY }],
-						)}
+						points={pointsToString(pathPoints(line.dirs.a, line.dirs.b))}
 						fill="none"
 						stroke={COLOR_HEX[line.color]}
 						strokeWidth={LINE_WIDTH}
@@ -102,41 +151,16 @@ export function CellView({ cell, line }: Props) {
 						<Circle
 							cx={CX}
 							cy={CY}
-							r={LINE_WIDTH * 0.7}
+							r={LINE_WIDTH / 2}
 							fill={COLOR_HEX[line.color]}
 						/>
 					)}
 				</>
 			) : null}
-			{cell.start ? (
-				<Circle
-					cx={CX}
-					cy={CY}
-					r={SIZE * 0.28}
-					fill={COLOR_HEX[cell.start.color]}
-				/>
-			) : null}
-			{cell.goal ? (
-				<Circle
-					cx={CX}
-					cy={CY}
-					r={SIZE * 0.28}
-					fill="none"
-					stroke={COLOR_HEX[cell.goal.color]}
-					strokeWidth={SIZE * 0.08}
-				/>
-			) : null}
+			{cell.start ? <Mark color={cell.start.color} label="S" /> : null}
+			{cell.goal ? <Mark color={cell.goal.color} label="G" /> : null}
 			{cell.number ? (
-				<SvgText
-					x={CX}
-					y={CY + SIZE * 0.16}
-					textAnchor="middle"
-					fontSize={SIZE * 0.42}
-					fontWeight="700"
-					fill={COLOR_HEX[cell.number.color]}
-				>
-					{String(cell.number.value)}
-				</SvgText>
+				<Mark color={cell.number.color} label={String(cell.number.value)} />
 			) : null}
 		</Svg>
 	);
