@@ -168,3 +168,33 @@ export function lineAtCell(
 	}
 	return undefined;
 }
+
+export function isBoardCleared(board: Board, lines: Line[]): boolean {
+	for (const cell of board.cells) {
+		if (!occupantAt(lines, cell.x, cell.y)) {
+			return false;
+		}
+	}
+
+	for (const cell of board.cells) {
+		if (!cell.start) {
+			continue;
+		}
+		const color = cell.start.color;
+		const goal = board.cells.find((item) => item.goal?.color === color);
+		const line = lines.find((item) => item.color === color);
+		if (!goal || !line || line.coords.length === 0) {
+			return false;
+		}
+		const first = line.coords[0];
+		const last = line.coords[line.coords.length - 1];
+		if (first.x !== cell.x || first.y !== cell.y) {
+			return false;
+		}
+		if (last.x !== goal.x || last.y !== goal.y) {
+			return false;
+		}
+	}
+
+	return true;
+}

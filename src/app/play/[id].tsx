@@ -2,7 +2,7 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { linesFromBoard } from "@/game/draw";
+import { isBoardCleared, linesFromBoard } from "@/game/draw";
 import { getLevel } from "@/game/levels";
 import { useProgress } from "@/game/progress";
 import { BoardView } from "@/ui/BoardView";
@@ -23,6 +23,20 @@ export default function PlayScreen() {
 			setLines(linesFromBoard(level.board));
 		}
 	}, [level]);
+
+	useEffect(() => {
+		if (!level) {
+			return;
+		}
+		if (!isBoardCleared(level.board, lines)) {
+			return;
+		}
+		markCleared(level.id);
+		router.replace({
+			pathname: "/clear/[id]",
+			params: { id: level.id },
+		});
+	}, [lines, level, markCleared, router]);
 
 	if (!level) {
 		return <Redirect href="/levels" />;
@@ -50,21 +64,11 @@ export default function PlayScreen() {
 				<BoardView board={level.board} lines={lines} onChangeLines={setLines} />
 			</View>
 
-			<View className="gap-3 px-6">
+			<View className="px-6">
 				<Button
 					label="リセット"
 					variant="secondary"
 					onPress={() => setLines(linesFromBoard(level.board))}
-				/>
-				<Button
-					label="クリア（仮）"
-					onPress={() => {
-						markCleared(level.id);
-						router.replace({
-							pathname: "/clear/[id]",
-							params: { id: level.id },
-						});
-					}}
 				/>
 			</View>
 		</View>
