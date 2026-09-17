@@ -1,4 +1,4 @@
-import { generateBoard, MAX_DIFFICULTY_TIER } from "../generate";
+import { difficultyForGeneratedIndex, generateBoard } from "../generate";
 import type { Board } from "../model/board";
 import { colorsBoard, dirsBoard, lineBoard, numbersBoard } from "./samples";
 
@@ -19,11 +19,12 @@ export const TUTORIAL_COUNT = TUTORIAL_LEVELS.length;
 
 const levelCache = new Map<string, Level>();
 
+/** 生成用の通し番号（レベル 5 → 1）。チュートリアルは 0。 */
 export function tierForLevelNumber(n: number): number {
 	if (n <= TUTORIAL_COUNT) {
 		return 0;
 	}
-	return Math.min(n - TUTORIAL_COUNT, MAX_DIFFICULTY_TIER);
+	return n - TUTORIAL_COUNT;
 }
 
 export function getLevel(id: string): Level | undefined {
@@ -39,10 +40,11 @@ export function getLevel(id: string): Level | undefined {
 	const key = String(n);
 	let level = levelCache.get(key);
 	if (!level) {
+		const generatedIndex = n - TUTORIAL_COUNT;
 		level = {
 			id: key,
 			name: `レベル ${n}`,
-			board: generateBoard(n, tierForLevelNumber(n)),
+			board: generateBoard(n, difficultyForGeneratedIndex(generatedIndex)),
 		};
 		levelCache.set(key, level);
 	}

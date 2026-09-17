@@ -2,7 +2,7 @@ import type { Board } from "../model/board";
 import type { Cell } from "../model/cell";
 import { COLORS, type Color } from "../model/color";
 import { dirBetween, hexDistance } from "../model/hex";
-import { type Difficulty, difficultyForTier } from "./difficulty";
+import type { Difficulty } from "./difficulty";
 import { createRng, rngInt, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
 import { createUniquenessChecker } from "./uniqueness";
@@ -782,8 +782,7 @@ function fallbackBoard(seed: number): Board {
 	};
 }
 
-export function generateBoard(seed: number, tier: number): Board {
-	const difficulty = difficultyForTier(tier);
+export function generateBoard(seed: number, difficulty: Difficulty): Board {
 	const rng = createRng(seed);
 
 	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
