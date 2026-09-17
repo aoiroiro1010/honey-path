@@ -10,7 +10,7 @@ export default function ClearScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const level = id ? getLevel(id) : undefined;
-	const nextId = id ? nextLevelId(id) : undefined;
+	const nextId = id ? nextLevelId(id) : "1";
 
 	if (!level) {
 		return <Redirect href="/levels" />;
@@ -33,17 +33,15 @@ export default function ClearScreen() {
 			</View>
 
 			<View className="gap-3">
-				{nextId ? (
-					<Button
-						label="次のレベル"
-						onPress={() =>
-							router.replace({
-								pathname: "/play/[id]",
-								params: { id: nextId },
-							})
-						}
-					/>
-				) : null}
+				<Button
+					label="次のレベル"
+					onPress={() =>
+						router.replace({
+							pathname: "/play/[id]",
+							params: { id: nextId },
+						})
+					}
+				/>
 				<Button
 					label="レベル選択に戻る"
 					variant="secondary"

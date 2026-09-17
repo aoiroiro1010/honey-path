@@ -1,46 +1,32 @@
 import type { Board } from "@/game/board";
-import type { Cell } from "@/game/cell";
 
-function hexDisk(radius: number): Cell[] {
-	const cells: Cell[] = [];
-	for (let x = -radius; x <= radius; x++) {
-		for (
-			let y = Math.max(-radius, -x - radius);
-			y <= Math.min(radius, -x + radius);
-			y++
-		) {
-			cells.push({ x, y });
-		}
-	}
-	return cells;
-}
+/** 1: スタートからゴールまで線を引くだけ */
+export const lineBoard: Board = {
+	cells: [
+		{ x: 0, y: 0, start: { color: "red" } },
+		{ x: 1, y: 0 },
+		{ x: 2, y: 0, goal: { color: "red" } },
+	],
+	lines: [{ color: "red", coords: [] }],
+};
 
-const ring = hexDisk(2).filter((cell) => !(cell.x === 0 && cell.y === 0));
-
-/** 線も縛りもない穴あき面に、赤・青のスタートとゴールを置いたサンプル */
-export const sampleBoard: Board = {
-	cells: ring.map((cell) => {
-		if (cell.x === -2 && cell.y === 0) {
-			return { ...cell, start: { color: "red" } };
-		}
-		if (cell.x === 2 && cell.y === 0) {
-			return { ...cell, goal: { color: "red" } };
-		}
-		if (cell.x === 0 && cell.y === -2) {
-			return { ...cell, start: { color: "blue" } };
-		}
-		if (cell.x === 0 && cell.y === 2) {
-			return { ...cell, goal: { color: "blue" } };
-		}
-		return cell;
-	}),
+/** 2: 色ごとに別々の線を引く */
+export const colorsBoard: Board = {
+	cells: [
+		{ x: 0, y: 0, start: { color: "red" } },
+		{ x: 1, y: 0 },
+		{ x: 2, y: 0, goal: { color: "red" } },
+		{ x: 0, y: 1, start: { color: "blue" } },
+		{ x: 1, y: 1 },
+		{ x: 2, y: 1, goal: { color: "blue" } },
+	],
 	lines: [
 		{ color: "red", coords: [] },
 		{ color: "blue", coords: [] },
 	],
 };
 
-/** 向きの縛りがある面。中央の折れに従う */
+/** 3: 向きの印どおりに通る */
 export const dirsBoard: Board = {
 	cells: [
 		{ x: 0, y: 0, start: { color: "red" } },
@@ -51,7 +37,7 @@ export const dirsBoard: Board = {
 	lines: [{ color: "red", coords: [] }],
 };
 
-/** 数字を順に拾う面。1 → 2 のあとゴール */
+/** 4: 数字を色ごと順に拾ってからゴール */
 export const numbersBoard: Board = {
 	cells: [
 		{ x: 0, y: 0, start: { color: "red" } },
@@ -61,3 +47,6 @@ export const numbersBoard: Board = {
 	],
 	lines: [{ color: "red", coords: [] }],
 };
+
+/** Storybook 用の別名 */
+export const sampleBoard = colorsBoard;
