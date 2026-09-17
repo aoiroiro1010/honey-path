@@ -6,7 +6,8 @@ import {
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useProgress } from "@/game/progress";
 
 import "../global.css";
 
@@ -17,7 +18,19 @@ export default function RootLayout() {
 		ZenMaruGothic_500Medium,
 		ZenMaruGothic_700Bold,
 	});
-	const ready = fontsLoaded || Boolean(fontError);
+	const [hydrated, setHydrated] = useState(useProgress.persist.hasHydrated());
+	const fontsReady = fontsLoaded || Boolean(fontError);
+	const ready = fontsReady && hydrated;
+
+	useEffect(() => {
+		const unsub = useProgress.persist.onFinishHydration(() => {
+			setHydrated(true);
+		});
+		if (useProgress.persist.hasHydrated()) {
+			setHydrated(true);
+		}
+		return unsub;
+	}, []);
 
 	useEffect(() => {
 		if (ready) {
@@ -31,8 +44,8 @@ export default function RootLayout() {
 
 	return (
 		<>
-			<StatusBar style="auto" />
-			<Stack screenOptions={{ headerShown: false }} />
+			<StatusBar style="dark" />
+			<Stack screenOptions={{ headerShown: false, animation: "fade" }} />
 		</>
 	);
 }
