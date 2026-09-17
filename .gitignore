@@ -53,3 +53,6 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+*storybook.log
+storybook-static
