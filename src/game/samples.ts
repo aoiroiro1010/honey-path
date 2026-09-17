@@ -39,3 +39,25 @@ export const sampleBoard: Board = {
 		{ color: "blue", coords: [] },
 	],
 };
+
+/** 向きの縛りがある面。中央の折れに従う */
+export const dirsBoard: Board = {
+	cells: [
+		{ x: 0, y: 0, start: { color: "red" } },
+		{ x: 1, y: 0, dirs: { a: "L", b: "BR" } },
+		{ x: 1, y: 1, dirs: { a: "TL", b: "L" } },
+		{ x: 0, y: 1, goal: { color: "red" } },
+	],
+	lines: [{ color: "red", coords: [] }],
+};
+
+/** 数字を順に拾う面。1 → 2 のあとゴール */
+export const numbersBoard: Board = {
+	cells: [
+		{ x: 0, y: 0, start: { color: "red" } },
+		{ x: 1, y: 0, number: { color: "red", value: 1 } },
+		{ x: 1, y: -1, number: { color: "red", value: 2 } },
+		{ x: 0, y: -1, goal: { color: "red" } },
+	],
+	lines: [{ color: "red", coords: [] }],
+};

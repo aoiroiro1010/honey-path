@@ -1,5 +1,5 @@
 import type { Board } from "./board";
-import { sampleBoard } from "./samples";
+import { dirsBoard, numbersBoard, sampleBoard } from "./samples";
 
 export type Level = {
 	id: string;
@@ -9,8 +9,8 @@ export type Level = {
 
 export const LEVELS: Level[] = [
 	{ id: "1", name: "レベル 1", board: sampleBoard },
-	{ id: "2", name: "レベル 2", board: sampleBoard },
-	{ id: "3", name: "レベル 3", board: sampleBoard },
+	{ id: "2", name: "向き", board: dirsBoard },
+	{ id: "3", name: "数字", board: numbersBoard },
 ];
 
 export function getLevel(id: string): Level | undefined {

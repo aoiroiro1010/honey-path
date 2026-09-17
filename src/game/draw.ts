@@ -49,6 +49,10 @@ export function canEnter(
 	if (endpoint && endpoint !== color) {
 		return false;
 	}
+	const number = cellAt(board, x, y)?.number;
+	if (number && number.color !== color) {
+		return false;
+	}
 	return true;
 }
 
@@ -92,6 +96,76 @@ function isGoalOf(board: Board, color: Color, x: number, y: number): boolean {
 	return cell?.goal?.color === color;
 }
 
+function dirsMatch(
+	dirs: { a: HexDir; b: HexDir },
+	d1: HexDir,
+	d2: HexDir,
+): boolean {
+	return (dirs.a === d1 && dirs.b === d2) || (dirs.a === d2 && dirs.b === d1);
+}
+
+function nextNumberExpected(board: Board, line: Line, color: Color): number {
+	let count = 0;
+	for (const coord of line.coords) {
+		const cell = cellAt(board, coord.x, coord.y);
+		if (cell?.number?.color === color) {
+			count += 1;
+		}
+	}
+	return count + 1;
+}
+
+function canPassDirs(
+	board: Board,
+	tip: { x: number; y: number },
+	next: { x: number; y: number },
+	prev: { x: number; y: number } | undefined,
+): boolean {
+	const tipCell = cellAt(board, tip.x, tip.y);
+	if (tipCell?.dirs) {
+		if (!prev) {
+			return false;
+		}
+		const toPrev = dirBetween(tip, prev);
+		const toNext = dirBetween(tip, next);
+		if (!toPrev || !toNext) {
+			return false;
+		}
+		if (!dirsMatch(tipCell.dirs, toPrev, toNext)) {
+			return false;
+		}
+	}
+
+	const nextCell = cellAt(board, next.x, next.y);
+	if (nextCell?.dirs) {
+		const entry = dirBetween(next, tip);
+		if (!entry) {
+			return false;
+		}
+		if (entry !== nextCell.dirs.a && entry !== nextCell.dirs.b) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function canPassNumber(
+	board: Board,
+	line: Line,
+	color: Color,
+	next: { x: number; y: number },
+): boolean {
+	const cell = cellAt(board, next.x, next.y);
+	if (!cell?.number) {
+		return true;
+	}
+	if (cell.number.color !== color) {
+		return false;
+	}
+	return cell.number.value === nextNumberExpected(board, line, color);
+}
+
 export function tryExtend(
 	board: Board,
 	lines: Line[],
@@ -116,6 +190,14 @@ export function tryExtend(
 		return null;
 	}
 	if (!canEnter(board, lines, color, next.x, next.y)) {
+		return null;
+	}
+	const prev =
+		line.coords.length >= 2 ? line.coords[line.coords.length - 2] : undefined;
+	if (!canPassDirs(board, tip, next, prev)) {
+		return null;
+	}
+	if (!canPassNumber(board, line, color, next)) {
 		return null;
 	}
 	return lines.map((item) =>
@@ -194,7 +276,35 @@ export function isBoardCleared(board: Board, lines: Line[]): boolean {
 		if (last.x !== goal.x || last.y !== goal.y) {
 			return false;
 		}
+		if (!numbersCollectedInOrder(board, line, color)) {
+			return false;
+		}
 	}
 
 	return true;
+}
+
+function numbersCollectedInOrder(
+	board: Board,
+	line: Line,
+	color: Color,
+): boolean {
+	const required = board.cells
+		.filter((cell) => cell.number?.color === color)
+		.map((cell) => cell.number?.value)
+		.filter((value): value is number => value !== undefined)
+		.sort((a, b) => a - b);
+
+	const got: number[] = [];
+	for (const coord of line.coords) {
+		const number = cellAt(board, coord.x, coord.y)?.number;
+		if (number?.color === color) {
+			got.push(number.value);
+		}
+	}
+
+	return (
+		got.length === required.length &&
+		got.every((value, index) => value === required[index])
+	);
 }
