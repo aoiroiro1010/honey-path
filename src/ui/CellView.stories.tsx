@@ -48,3 +48,24 @@ export const Dirs: Story = {
 		cell: { x: 0, y: 0, dirs: { a: "R", b: "L" } },
 	},
 };
+
+export const LineThrough: Story = {
+	args: {
+		cell: { x: 0, y: 0 },
+		line: { color: "red", dirs: { a: "R", b: "L" } },
+	},
+};
+
+export const LineTip: Story = {
+	args: {
+		cell: { x: 0, y: 0, start: { color: "red" } },
+		line: { color: "red", dirs: { a: "R" } },
+	},
+};
+
+export const LineOnDirs: Story = {
+	args: {
+		cell: { x: 0, y: 0, dirs: { a: "R", b: "BL" } },
+		line: { color: "blue", dirs: { a: "R", b: "BL" } },
+	},
+};
