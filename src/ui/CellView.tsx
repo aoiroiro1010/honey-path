@@ -1,6 +1,3 @@
-import type { Cell } from "@/game/cell";
-import type { Color } from "@/game/color";
-import type { HexDir } from "@/game/hex";
 import { useId } from "react";
 import Svg, {
 	Circle,
@@ -11,14 +8,17 @@ import Svg, {
 	Polyline,
 	Text as SvgText,
 } from "react-native-svg";
-
+import type { Cell } from "@/game/cell";
+import type { Color } from "@/game/color";
+import type { HexDir } from "@/game/hex";
+import { CELL_PAD, CELL_SIZE, CELL_VIEW_SIZE } from "./hexLayout";
 import { COLOR_HEX } from "./palette";
 
-const SIZE = 56;
-const PAD = 2;
+const SIZE = CELL_SIZE;
+const PAD = CELL_PAD;
 const CX = SIZE + PAD;
 const CY = SIZE + PAD;
-const DIM = (SIZE + PAD) * 2;
+const DIM = CELL_VIEW_SIZE;
 const LINE_WIDTH = SIZE * 0.42;
 const RAIL_WIDTH = SIZE * 0.08;
 const MARK_R = SIZE * 0.6;
