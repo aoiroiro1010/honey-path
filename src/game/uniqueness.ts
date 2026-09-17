@@ -260,6 +260,121 @@ export function countSolutions(
 	return { count: found, exhausted };
 }
 
+function pathSignature(coords: Coord[]): string {
+	return coords.map((coord) => axialKey(coord.x, coord.y)).join("|");
+}
+
+/**
+ * 正解以外の完全解があるかを探す。
+ * 正解と同じ組み合わせは数えず、ずれを優先して探索する。
+ */
+export function hasAlternateSolution(
+	board: Board,
+	intended: { color: Color; coords: Coord[] }[],
+	nodeBudget = DEFAULT_NODE_BUDGET,
+): { alternate: boolean; exhausted: boolean } {
+	const jobs: { color: Color; start: Coord; goal: Coord }[] = [];
+	for (const cell of board.cells) {
+		if (!cell.start) {
+			continue;
+		}
+		const goalCell = board.cells.find(
+			(item) => item.goal?.color === cell.start?.color,
+		);
+		if (!goalCell || !cell.start) {
+			continue;
+		}
+		jobs.push({
+			color: cell.start.color,
+			start: { x: cell.x, y: cell.y },
+			goal: { x: goalCell.x, y: goalCell.y },
+		});
+	}
+
+	const intendedByColor = new Map(
+		intended.map((path) => [path.color, path.coords] as const),
+	);
+	const intendedSigs = jobs.map((job) => {
+		const coords = intendedByColor.get(job.color);
+		return coords ? pathSignature(coords) : "";
+	});
+
+	if (jobs.length === 0 || intendedSigs.some((sig) => !sig)) {
+		return { alternate: true, exhausted: true };
+	}
+
+	const allFree = new Set(board.cells.map((cell) => axialKey(cell.x, cell.y)));
+	const nodes = { n: 0, max: nodeBudget };
+	let alternate = false;
+	let exhausted = true;
+
+	function rec(index: number, free: Set<string>, differed: boolean) {
+		if (alternate) {
+			return;
+		}
+		if (nodes.n > nodes.max) {
+			exhausted = false;
+			return;
+		}
+		if (index === jobs.length) {
+			if (free.size === 0 && differed) {
+				alternate = true;
+			}
+			return;
+		}
+
+		const job = jobs[index];
+		const isLast = index === jobs.length - 1;
+		const paths = enumeratePaths(
+			board,
+			job.color,
+			job.start,
+			job.goal,
+			free,
+			isLast,
+			nodes,
+			PATH_CAP,
+		);
+
+		if (paths.length >= PATH_CAP) {
+			alternate = true;
+			return;
+		}
+
+		const intendedSig = intendedSigs[index];
+		paths.sort((a, b) => {
+			const aInt = pathSignature(a) === intendedSig ? 1 : 0;
+			const bInt = pathSignature(b) === intendedSig ? 1 : 0;
+			return aInt - bInt;
+		});
+
+		for (const path of paths) {
+			const sig = pathSignature(path);
+			const nextDiffered = differed || sig !== intendedSig;
+			if (isLast && !nextDiffered) {
+				continue;
+			}
+			const nextFree = new Set(free);
+			for (const coord of path) {
+				nextFree.delete(axialKey(coord.x, coord.y));
+			}
+			if (isLast && nextFree.size > 0) {
+				continue;
+			}
+			rec(index + 1, nextFree, nextDiffered);
+			if (alternate) {
+				return;
+			}
+		}
+	}
+
+	rec(0, allFree, false);
+	if (nodes.n > nodes.max) {
+		exhausted = false;
+	}
+	return { alternate, exhausted };
+}
+
 /** 解がちょうど1つなら true */
 export function isUniqueSolution(board: Board): boolean {
 	const { count, exhausted } = countSolutions(board, 2);

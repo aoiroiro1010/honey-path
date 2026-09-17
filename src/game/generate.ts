@@ -3,9 +3,9 @@ import type { Cell } from "./cell";
 import { COLORS, type Color } from "./color";
 import { type Difficulty, difficultyForTier } from "./difficulty";
 import { dirBetween, hexDistance } from "./hex";
-import { createRng, rngPick, rngShuffle } from "./rng";
+import { createRng, rngInt, rngPick, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
-import { isUniqueSolution } from "./uniqueness";
+import { countSolutions, hasAlternateSolution } from "./uniqueness";
 
 type Coord = { x: number; y: number };
 type Path = { color: Color; coords: Coord[] };
@@ -367,42 +367,253 @@ function applyAllDirs(cells: Cell[], paths: Path[]): Cell[] {
 
 /**
  * 向きを減らしていき、別解が出ないギリギリまで残す。
- * 残数の多少は問わず、足りなくてもやり直さない。
+ * 削除順・追加順・キックを変えて探索し、より少ない向きを採用する。
+ * 残数の多少は問わず、足りなくても盤を捨てない。
  */
-function stripDirsToUnique(board: Board, rng: () => number): Board {
-	const cells = board.cells.map((cell) => ({ ...cell }));
-	const byKey = new Map(cells.map((cell) => [axialKey(cell.x, cell.y), cell]));
+function stripDirsToUnique(
+	board: Board,
+	paths: Path[],
+	rng: () => number,
+): Board {
+	const fullDirs = new Map<string, NonNullable<Cell["dirs"]>>();
+	for (const cell of board.cells) {
+		if (cell.dirs) {
+			fullDirs.set(axialKey(cell.x, cell.y), { ...cell.dirs });
+		}
+	}
 
-	const dirKeys = rngShuffle(
-		rng,
-		cells.filter((cell) => cell.dirs).map((cell) => axialKey(cell.x, cell.y)),
-	);
+	const allKeys = [...fullDirs.keys()];
+	if (allKeys.length === 0) {
+		return board;
+	}
 
-	function snapshot(): Board {
+	const intended = paths.map((path) => ({
+		color: path.color,
+		coords: path.coords,
+	}));
+
+	function makeBoard(kept: Set<string>): Board {
 		return {
-			cells: [...byKey.values()],
+			cells: board.cells.map((cell) => {
+				const key = axialKey(cell.x, cell.y);
+				const next = { ...cell };
+				const dirs = fullDirs.get(key);
+				if (kept.has(key) && dirs) {
+					next.dirs = { ...dirs };
+				} else {
+					delete next.dirs;
+				}
+				return next;
+			}),
 			lines: board.lines,
 		};
 	}
 
-	// 全向きありなら一意のはず。壊れていたらそのまま返す
-	if (!isUniqueSolution(snapshot())) {
-		return snapshot();
+	function signature(kept: Set<string>): string {
+		let out = "";
+		for (const key of allKeys) {
+			out += kept.has(key) ? "1" : "0";
+		}
+		return out;
 	}
 
-	for (const key of dirKeys) {
-		const cell = byKey.get(key);
-		if (!cell?.dirs) {
+	const cache = new Map<string, boolean>();
+	/**
+	 * 別解が見つかったら不可。
+	 * 探索が尽きて別解なしなら可。打ち切りで未確認なら不可（削りすぎ防止）。
+	 */
+	function allowsStrip(kept: Set<string>): boolean {
+		const sig = signature(kept);
+		const hit = cache.get(sig);
+		if (hit !== undefined) {
+			return hit;
+		}
+		const board = makeBoard(kept);
+		const alt = hasAlternateSolution(board, intended, 100_000);
+		if (alt.alternate) {
+			cache.set(sig, false);
+			return false;
+		}
+		if (alt.exhausted) {
+			cache.set(sig, true);
+			return true;
+		}
+		const counted = countSolutions(board, 2, 120_000);
+		if (counted.count >= 2) {
+			cache.set(sig, false);
+			return false;
+		}
+		if (counted.count === 1 && counted.exhausted) {
+			cache.set(sig, true);
+			return true;
+		}
+		// 未確認: 削らない
+		cache.set(sig, false);
+		return false;
+	}
+
+	const fullKept = new Set(allKeys);
+	if (!allowsStrip(fullKept)) {
+		return makeBoard(fullKept);
+	}
+
+	const deadline = Date.now() + Math.min(18_000, 3_500 + allKeys.length * 150);
+	const STRIP_RESTARTS = 5;
+	const ADD_RESTARTS = 3;
+	const KICK_ROUNDS = 4;
+	const PAIR_TRIES = Math.min(40, allKeys.length * 3);
+
+	let bestKept = new Set(allKeys);
+
+	function consider(kept: Set<string>) {
+		if (kept.size < bestKept.size) {
+			bestKept = new Set(kept);
+		}
+	}
+
+	function timeUp() {
+		return Date.now() >= deadline;
+	}
+
+	function greedyStrip(initial: Set<string>): Set<string> {
+		const kept = new Set(initial);
+		let progress = true;
+		while (progress && !timeUp()) {
+			progress = false;
+			for (const key of rngShuffle(rng, [...kept])) {
+				if (timeUp()) {
+					break;
+				}
+				kept.delete(key);
+				if (allowsStrip(kept)) {
+					progress = true;
+				} else {
+					kept.add(key);
+				}
+			}
+		}
+		return kept;
+	}
+
+	function tryPairs(kept: Set<string>): Set<string> {
+		let pairProgress = true;
+		let pairRounds = 0;
+		while (pairProgress && pairRounds < 4 && !timeUp()) {
+			pairRounds += 1;
+			pairProgress = false;
+			for (let t = 0; t < PAIR_TRIES; t++) {
+				if (timeUp()) {
+					return kept;
+				}
+				const list = [...kept];
+				if (list.length < 2) {
+					return kept;
+				}
+				const i = rngInt(rng, list.length);
+				let j = rngInt(rng, list.length - 1);
+				if (j >= i) {
+					j += 1;
+				}
+				const a = list[i];
+				const b = list[j];
+				kept.delete(a);
+				kept.delete(b);
+				if (allowsStrip(kept)) {
+					pairProgress = true;
+					break;
+				}
+				kept.add(a);
+				kept.add(b);
+			}
+		}
+		return kept;
+	}
+
+	function repairNoAlternate(kept: Set<string>): Set<string> {
+		for (const key of rngShuffle(rng, allKeys)) {
+			if (allowsStrip(kept)) {
+				return kept;
+			}
+			kept.add(key);
+		}
+		return kept;
+	}
+
+	function stripKept(initial: Set<string>): Set<string> {
+		let kept = greedyStrip(initial);
+		kept = tryPairs(kept);
+		kept = greedyStrip(kept);
+
+		for (let kick = 0; kick < KICK_ROUNDS && !timeUp(); kick++) {
+			if (kept.size < 3) {
+				break;
+			}
+			const snapshot = new Set(kept);
+			const removeCount = Math.min(kept.size - 1, 2 + rngInt(rng, 3));
+			for (const key of rngShuffle(rng, [...kept]).slice(0, removeCount)) {
+				kept.delete(key);
+			}
+			kept = repairNoAlternate(kept);
+			if (!allowsStrip(kept)) {
+				kept = snapshot;
+				continue;
+			}
+			kept = greedyStrip(kept);
+			kept = tryPairs(kept);
+			kept = greedyStrip(kept);
+			if (kept.size >= snapshot.size) {
+				kept = snapshot;
+			}
+		}
+
+		return kept;
+	}
+
+	for (let restart = 0; restart < STRIP_RESTARTS && !timeUp(); restart++) {
+		consider(stripKept(new Set(allKeys)));
+	}
+
+	for (let restart = 0; restart < ADD_RESTARTS && !timeUp(); restart++) {
+		const kept = new Set<string>();
+		for (const key of rngShuffle(rng, allKeys)) {
+			kept.add(key);
+			if (allowsStrip(kept)) {
+				break;
+			}
+		}
+		if (!allowsStrip(kept)) {
 			continue;
 		}
-		const saved = cell.dirs;
-		cell.dirs = undefined;
-		if (!isUniqueSolution(snapshot())) {
-			cell.dirs = saved;
+		consider(stripKept(kept));
+	}
+
+	// 最終確認: 別解がある／未確認なら向きを足して安定させる
+	const finalKept = new Set(bestKept);
+	function finalOk(kept: Set<string>): boolean {
+		const board = makeBoard(kept);
+		const alt = hasAlternateSolution(board, intended, 250_000);
+		if (alt.alternate) {
+			return false;
+		}
+		if (alt.exhausted) {
+			return true;
+		}
+		const counted = countSolutions(board, 2, 250_000);
+		return counted.count === 1 && counted.exhausted;
+	}
+	if (!finalOk(finalKept)) {
+		for (const key of rngShuffle(rng, allKeys)) {
+			if (finalKept.has(key)) {
+				continue;
+			}
+			finalKept.add(key);
+			if (finalOk(finalKept)) {
+				break;
+			}
 		}
 	}
 
-	return snapshot();
+	return makeBoard(finalKept);
 }
 
 function applyNumbers(
@@ -465,7 +676,7 @@ function buildBoard(
 		cells,
 		lines: paths.map((path) => ({ color: path.color, coords: [] })),
 	};
-	board = stripDirsToUnique(board, rng);
+	board = stripDirsToUnique(board, paths, rng);
 
 	if (difficulty.numbersPerColor > 0) {
 		const withNums = applyNumbers(
