@@ -1,6 +1,6 @@
-import { type Board, cellAt } from "./board";
-import type { Color } from "./color";
-import { dirBetween, HEX_DELTA, HEX_DIRS, type HexDir } from "./hex";
+import { type Board, cellAt } from "../model/board";
+import type { Color } from "../model/color";
+import { dirBetween, HEX_DELTA, HEX_DIRS, type HexDir } from "../model/hex";
 import { axialKey } from "./shape";
 
 type Coord = { x: number; y: number };

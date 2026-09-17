@@ -1,8 +1,11 @@
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { isLevelUnlocked, visibleLevelNumbers } from "@/game/levels";
-import { useProgress } from "@/game/progress";
+import {
+	isLevelUnlocked,
+	useProgress,
+	visibleLevelNumbers,
+} from "@/game/levels";
 
 export default function LevelsScreen() {
 	const router = useRouter();

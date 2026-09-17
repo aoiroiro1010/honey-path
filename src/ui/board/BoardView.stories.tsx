@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { linesFromBoard } from "@/game/draw";
-import { sampleBoard } from "@/game/samples";
+import { sampleBoard } from "@/game/levels/samples";
 
 import { BoardView } from "./BoardView";
 

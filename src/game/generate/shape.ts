@@ -1,5 +1,5 @@
-import type { Cell } from "./cell";
-import { HEX_DELTA, HEX_DIRS } from "./hex";
+import type { Cell } from "../model/cell";
+import { HEX_DELTA, HEX_DIRS } from "../model/hex";
 
 export function axialKey(x: number, y: number): string {
 	return `${x},${y}`;

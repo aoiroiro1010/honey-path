@@ -2,8 +2,8 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getLevel, nextLevelId } from "@/game/levels";
-import { BoardView } from "@/ui/BoardView";
 import { Button } from "@/ui/Button";
+import { BoardView } from "@/ui/board";
 
 export default function ClearScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();

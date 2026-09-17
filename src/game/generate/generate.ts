@@ -1,8 +1,8 @@
-import type { Board } from "./board";
-import type { Cell } from "./cell";
-import { COLORS, type Color } from "./color";
+import type { Board } from "../model/board";
+import type { Cell } from "../model/cell";
+import { COLORS, type Color } from "../model/color";
+import { dirBetween, hexDistance } from "../model/hex";
 import { type Difficulty, difficultyForTier } from "./difficulty";
-import { dirBetween, hexDistance } from "./hex";
 import { createRng, rngInt, rngPick, rngShuffle } from "./rng";
 import { axialFromKey, axialKey, hexDisk, neighborKeys } from "./shape";
 import { countSolutions, hasAlternateSolution } from "./uniqueness";

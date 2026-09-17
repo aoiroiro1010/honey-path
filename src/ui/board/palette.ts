@@ -1,4 +1,4 @@
-import type { Color } from "@/game/color";
+import type { Color } from "@/game/model/color";
 
 export const COLOR_HEX: Record<Color, string> = {
 	red: "#ef4444",

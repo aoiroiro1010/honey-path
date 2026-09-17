@@ -7,7 +7,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { useProgress } from "@/game/progress";
+import { useProgress } from "@/game/levels";
 
 import "../global.css";
 

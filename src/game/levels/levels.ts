@@ -1,6 +1,5 @@
-import type { Board } from "./board";
-import { MAX_DIFFICULTY_TIER } from "./difficulty";
-import { generateBoard } from "./generate";
+import { generateBoard, MAX_DIFFICULTY_TIER } from "../generate";
+import type { Board } from "../model/board";
 import { colorsBoard, dirsBoard, lineBoard, numbersBoard } from "./samples";
 
 export type Level = {

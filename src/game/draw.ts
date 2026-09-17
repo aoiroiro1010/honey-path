@@ -1,7 +1,7 @@
-import { type Board, cellAt } from "./board";
-import type { Color } from "./color";
-import { dirBetween, type HexDir, isAdjacent } from "./hex";
-import type { Line } from "./line";
+import { type Board, cellAt } from "./model/board";
+import type { Color } from "./model/color";
+import { dirBetween, type HexDir, isAdjacent } from "./model/hex";
+import type { Line } from "./model/line";
 
 export function linesFromBoard(board: Board): Line[] {
 	const lines: Line[] = [];

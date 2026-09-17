@@ -8,9 +8,9 @@ import Svg, {
 	Polyline,
 	Text as SvgText,
 } from "react-native-svg";
-import type { Cell } from "@/game/cell";
-import type { Color } from "@/game/color";
-import type { HexDir } from "@/game/hex";
+import type { Cell } from "@/game/model/cell";
+import type { Color } from "@/game/model/color";
+import type { HexDir } from "@/game/model/hex";
 import { CELL_PAD, CELL_SIZE, CELL_VIEW_SIZE } from "./hexLayout";
 import { COLOR_HEX } from "./palette";
 

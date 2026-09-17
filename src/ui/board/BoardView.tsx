@@ -1,7 +1,5 @@
 import { useMemo, useRef } from "react";
 import { View } from "react-native";
-import type { Board } from "@/game/board";
-import type { Color } from "@/game/color";
 import {
 	beginAtStart,
 	clearLine,
@@ -9,10 +7,11 @@ import {
 	truncateLine,
 	tryExtend,
 } from "@/game/draw";
-import type { Line } from "@/game/line";
-
+import type { Board } from "@/game/model/board";
+import type { Color } from "@/game/model/color";
+import type { Line } from "@/game/model/line";
+import { hapticCell, hapticClear } from "../haptics";
 import { CellView } from "./CellView";
-import { hapticCell, hapticClear } from "./haptics";
 import { CELL_SIZE, CELL_VIEW_SIZE, cellToPixel } from "./hexLayout";
 
 type Props = {

@@ -1,4 +1,4 @@
-import type { Board } from "@/game/board";
+import type { Board } from "../model/board";
 
 /** 1: スタートからゴールまで線を引くだけ */
 export const lineBoard: Board = {

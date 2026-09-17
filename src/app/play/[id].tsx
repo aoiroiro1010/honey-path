@@ -3,10 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isBoardCleared, linesFromBoard } from "@/game/draw";
-import { getLevel } from "@/game/levels";
-import { useProgress } from "@/game/progress";
-import { BoardView } from "@/ui/BoardView";
+import { getLevel, useProgress } from "@/game/levels";
 import { Button } from "@/ui/Button";
+import { BoardView } from "@/ui/board";
 import { hapticSuccess } from "@/ui/haptics";
 
 export default function PlayScreen() {
