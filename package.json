@@ -49,6 +49,6 @@
 		"ios": "expo start --ios",
 		"web": "expo start --web",
 		"lint": "expo lint",
-		"check": "biome check ."
+		"check": "biome check . --write && tsc --noEmit"
 	}
 }
