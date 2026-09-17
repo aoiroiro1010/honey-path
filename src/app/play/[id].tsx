@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isBoardCleared, linesFromBoard } from "@/game/draw";
@@ -7,6 +7,7 @@ import { getLevel } from "@/game/levels";
 import { useProgress } from "@/game/progress";
 import { BoardView } from "@/ui/BoardView";
 import { Button } from "@/ui/Button";
+import { hapticSuccess } from "@/ui/haptics";
 
 export default function PlayScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,20 +18,24 @@ export default function PlayScreen() {
 	const [lines, setLines] = useState(() =>
 		level ? linesFromBoard(level.board) : [],
 	);
+	const clearedOnce = useRef(false);
 
 	useEffect(() => {
+		clearedOnce.current = false;
 		if (level) {
 			setLines(linesFromBoard(level.board));
 		}
 	}, [level]);
 
 	useEffect(() => {
-		if (!level) {
+		if (!level || clearedOnce.current) {
 			return;
 		}
 		if (!isBoardCleared(level.board, lines)) {
 			return;
 		}
+		clearedOnce.current = true;
+		hapticSuccess();
 		markCleared(level.id);
 		router.replace({
 			pathname: "/clear/[id]",

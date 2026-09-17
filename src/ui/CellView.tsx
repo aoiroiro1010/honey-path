@@ -21,7 +21,7 @@ const CY = SIZE + PAD;
 const DIM = CELL_VIEW_SIZE;
 const LINE_WIDTH = SIZE * 0.42;
 const RAIL_WIDTH = SIZE * 0.08;
-const MARK_R = SIZE * 0.6;
+const MARK_R = SIZE * 0.58;
 
 const CELL_FILL = "#f4f4f5";
 const CELL_STROKE = "#d4d4d8";
@@ -74,7 +74,7 @@ function pathPoints(a: HexDir, b?: HexDir): { x: number; y: number }[] {
 	return [edgePoint(a), { x: CX, y: CY }];
 }
 
-function Mark({ color, label }: { color: Color; label: string }) {
+function StartMark({ color }: { color: Color }) {
 	return (
 		<>
 			<Circle cx={CX} cy={CY} r={MARK_R} fill={COLOR_HEX[color]} />
@@ -82,11 +82,56 @@ function Mark({ color, label }: { color: Color; label: string }) {
 				x={CX}
 				y={CY + SIZE * 0.3}
 				textAnchor="middle"
-				fontSize={SIZE * 0.9}
+				fontSize={SIZE * 0.85}
 				fontWeight="700"
 				fill="#ffffff"
 			>
-				{label}
+				S
+			</SvgText>
+		</>
+	);
+}
+
+/** ゴールは輪郭リングでスタートと区別する */
+function GoalMark({ color }: { color: Color }) {
+	const stroke = SIZE * 0.12;
+	return (
+		<>
+			<Circle
+				cx={CX}
+				cy={CY}
+				r={MARK_R - stroke / 2}
+				fill="#ffffff"
+				stroke={COLOR_HEX[color]}
+				strokeWidth={stroke}
+			/>
+			<SvgText
+				x={CX}
+				y={CY + SIZE * 0.3}
+				textAnchor="middle"
+				fontSize={SIZE * 0.85}
+				fontWeight="700"
+				fill={COLOR_HEX[color]}
+			>
+				G
+			</SvgText>
+		</>
+	);
+}
+
+function NumberMark({ color, value }: { color: Color; value: number }) {
+	return (
+		<>
+			<Circle cx={CX} cy={CY} r={MARK_R} fill={COLOR_HEX[color]} />
+			<SvgText
+				x={CX}
+				y={CY + SIZE * 0.3}
+				textAnchor="middle"
+				fontSize={SIZE * 0.85}
+				fontWeight="700"
+				fill="#ffffff"
+			>
+				{String(value)}
 			</SvgText>
 		</>
 	);
@@ -157,10 +202,10 @@ export function CellView({ cell, line }: Props) {
 					)}
 				</>
 			) : null}
-			{cell.start ? <Mark color={cell.start.color} label="S" /> : null}
-			{cell.goal ? <Mark color={cell.goal.color} label="G" /> : null}
+			{cell.start ? <StartMark color={cell.start.color} /> : null}
+			{cell.goal ? <GoalMark color={cell.goal.color} /> : null}
 			{cell.number ? (
-				<Mark color={cell.number.color} label={String(cell.number.value)} />
+				<NumberMark color={cell.number.color} value={cell.number.value} />
 			) : null}
 		</Svg>
 	);

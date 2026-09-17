@@ -12,6 +12,7 @@ import {
 import type { Line } from "@/game/line";
 
 import { CellView } from "./CellView";
+import { hapticCell, hapticClear } from "./haptics";
 import { CELL_SIZE, CELL_VIEW_SIZE, cellToPixel } from "./hexLayout";
 
 type Props = {
@@ -25,6 +26,10 @@ type DragState = {
 	pendingStart: Color | null;
 	moved: boolean;
 };
+
+function lineLength(lines: Line[], color: Color): number {
+	return lines.find((line) => line.color === color)?.coords.length ?? 0;
+}
 
 export function BoardView({ board, lines, onChangeLines }: Props) {
 	const drawn = lines ?? board.lines;
@@ -75,9 +80,14 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		return best?.cell;
 	}
 
-	function apply(next: Line[]) {
+	function apply(next: Line[], kind: "cell" | "clear" | "silent" = "silent") {
 		linesRef.current = next;
 		onChangeLines?.(next);
+		if (kind === "cell") {
+			hapticCell();
+		} else if (kind === "clear") {
+			hapticClear();
+		}
 	}
 
 	function onTouchCell(cell: { x: number; y: number }, isDown: boolean) {
@@ -102,7 +112,12 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 						state.pendingStart = line.color;
 						return;
 					}
-					apply(truncateLine(current, line.color, index));
+					const before = line.coords.length;
+					const next = truncateLine(current, line.color, index);
+					apply(
+						next,
+						lineLength(next, line.color) < before ? "clear" : "silent",
+					);
 					state.color = line.color;
 					return;
 				}
@@ -110,14 +125,14 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 
 			if (startColor) {
 				state.pendingStart = startColor;
-				apply(beginAtStart(board, current, startColor));
+				apply(beginAtStart(board, current, startColor), "cell");
 				state.color = startColor;
 			}
 			return;
 		}
 
 		if (state.pendingStart) {
-			apply(beginAtStart(board, current, state.pendingStart));
+			apply(beginAtStart(board, current, state.pendingStart), "cell");
 			state.color = state.pendingStart;
 			state.pendingStart = null;
 			state.moved = true;
@@ -128,16 +143,20 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		}
 
 		state.moved = true;
-		const extended = tryExtend(board, current, state.color, cell);
-		if (extended) {
-			apply(extended);
+		const color = state.color;
+		const before = lineLength(current, color);
+		const extended = tryExtend(board, current, color, cell);
+		if (extended && lineLength(extended, color) > before) {
+			apply(extended, "cell");
+		} else if (extended) {
+			apply(extended, "silent");
 		}
 	}
 
 	function onRelease() {
 		const state = drag.current;
 		if (state.pendingStart && !state.moved) {
-			apply(clearLine(linesRef.current, state.pendingStart));
+			apply(clearLine(linesRef.current, state.pendingStart), "clear");
 		}
 		state.color = null;
 		state.pendingStart = null;
