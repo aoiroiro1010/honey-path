@@ -43,7 +43,9 @@
 					"microphonePermission": false,
 					"recordAudioAndroid": false
 				}
-			]
+			],
+			"expo-asset",
+			"expo-font"
 		],
 		"experiments": {
 			"typedRoutes": true,

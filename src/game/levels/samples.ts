@@ -9,7 +9,18 @@ export const lineBoard: Board = {
 		{ x: 2, y: 1 },
 		{ x: 3, y: 0, goal: { color: "red" } },
 	],
-	lines: [{ color: "red", coords: [] }],
+	lines: [
+		{
+			color: "red",
+			coords: [
+				{ x: 0, y: 0 },
+				{ x: 1, y: 0 },
+				{ x: 1, y: 1 },
+				{ x: 2, y: 1 },
+				{ x: 3, y: 0 },
+			],
+		},
+	],
 };
 
 /** 2: 色ごとに別々の線を引く */
@@ -24,8 +35,23 @@ export const colorsBoard: Board = {
 		{ x: 2, y: 1, goal: { color: "blue" } },
 	],
 	lines: [
-		{ color: "red", coords: [] },
-		{ color: "blue", coords: [] },
+		{
+			color: "red",
+			coords: [
+				{ x: 0, y: 0 },
+				{ x: 1, y: 0 },
+				{ x: 2, y: 0 },
+			],
+		},
+		{
+			color: "blue",
+			coords: [
+				{ x: 0, y: 1 },
+				{ x: 0, y: 2 },
+				{ x: 1, y: 1 },
+				{ x: 2, y: 1 },
+			],
+		},
 	],
 };
 
@@ -39,7 +65,19 @@ export const dirsBoard: Board = {
 		{ x: 2, y: 1, dirs: { a: "TL", b: "L" } },
 		{ x: 0, y: 1, goal: { color: "red" } },
 	],
-	lines: [{ color: "red", coords: [] }],
+	lines: [
+		{
+			color: "red",
+			coords: [
+				{ x: 0, y: 0 },
+				{ x: 1, y: 0 },
+				{ x: 2, y: 0 },
+				{ x: 1, y: 1 },
+				{ x: 2, y: 1 },
+				{ x: 0, y: 1 },
+			],
+		},
+	],
 };
 
 /** 4: 数字を色ごと順に拾ってからゴール */
@@ -52,7 +90,19 @@ export const numbersBoard: Board = {
 		{ x: 2, y: -1, number: { color: "red", value: 2 } },
 		{ x: 0, y: -1, goal: { color: "red" } },
 	],
-	lines: [{ color: "red", coords: [] }],
+	lines: [
+		{
+			color: "red",
+			coords: [
+				{ x: 0, y: 0 },
+				{ x: 1, y: 0 },
+				{ x: 2, y: 0 },
+				{ x: 2, y: -1 },
+				{ x: 1, y: -1 },
+				{ x: 0, y: -1 },
+			],
+		},
+	],
 };
 
 /** Storybook 用の別名 */

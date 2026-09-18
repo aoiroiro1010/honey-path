@@ -1,12 +1,14 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isBoardCleared, linesFromBoard } from "@/game/draw";
 import { getLevel, nextLevelId, useProgress } from "@/game/levels";
-import { Button } from "@/ui/Button";
+import { Button, IconButton } from "@/ui/Button";
 import { BoardView } from "@/ui/board";
 import { hapticSuccess } from "@/ui/haptics";
+import { PathProgress } from "@/ui/PathProgress";
 
 export default function PlayScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,10 +43,9 @@ export default function PlayScreen() {
 		hapticSuccess();
 		markCleared(level.id);
 		setCleared(true);
-		Animated.spring(clearAnim, {
+		Animated.timing(clearAnim, {
 			toValue: 1,
-			friction: 7,
-			tension: 60,
+			duration: 280,
 			useNativeDriver: true,
 		}).start();
 	}, [lines, level, markCleared, clearAnim]);
@@ -54,29 +55,82 @@ export default function PlayScreen() {
 	}
 
 	const nextId = nextLevelId(level.id);
+	const reset = () => setLines(linesFromBoard(level.board));
+	const pad = {
+		paddingTop: insets.top + 8,
+		paddingBottom: insets.bottom + 12,
+	};
+
+	if (cleared) {
+		return (
+			<View className="flex-1 bg-[#1e3a5f]" style={pad}>
+				<Animated.View style={{ flex: 1, opacity: clearAnim }}>
+					<View className="flex-1">
+						<View className="items-center px-6 pt-4">
+							<MaterialCommunityIcons name="crown" size={32} color="#fbbf24" />
+							<Text className="mt-2 font-heading text-5xl text-amber-300">
+								CLEAR!
+							</Text>
+							<Text className="mt-1 text-base text-white">{level.name}</Text>
+						</View>
+
+						<View
+							className="flex-1 items-center justify-center px-4"
+							style={{ userSelect: "none" }}
+						>
+							<BoardView board={level.board} lines={lines} />
+						</View>
+
+						<View className="items-center gap-3 px-6">
+							<View className="mb-1 flex-row gap-3">
+								{[0, 1, 2].map((i) => (
+									<Ionicons key={i} name="star" size={30} color="#fbbf24" />
+								))}
+							</View>
+							<View className="w-full gap-3">
+								<Button
+									label="次のレベル"
+									iconRight="chevron-forward"
+									onPress={() =>
+										router.replace({
+											pathname: "/play/[id]",
+											params: { id: nextId },
+										})
+									}
+								/>
+								<Button
+									label="レベル選択に戻る"
+									variant="secondary"
+									iconLeft="home-outline"
+									onPress={() => router.replace("/levels")}
+								/>
+							</View>
+						</View>
+					</View>
+				</Animated.View>
+			</View>
+		);
+	}
 
 	return (
-		<View
-			className="flex-1 bg-amber-50"
-			style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}
-		>
-			<View className="mb-4 flex-row items-center justify-between px-6">
-				<Pressable
+		<View className="flex-1 bg-amber-50" style={pad}>
+			<View className="mb-2 flex-row items-center justify-between px-4">
+				<IconButton
+					name="arrow-back"
+					accessibilityLabel="レベル選択へ"
 					onPress={() => router.replace("/levels")}
-					hitSlop={12}
-					disabled={cleared}
-				>
-					<Text
-						className={`text-base ${cleared ? "text-stone-300" : "text-stone-600"}`}
-					>
-						選択へ
-					</Text>
-				</Pressable>
+				/>
 				<Text className="font-heading text-xl text-amber-950">
 					{level.name}
 				</Text>
-				<View className="w-12" />
+				<IconButton
+					name="refresh"
+					accessibilityLabel="リセット"
+					onPress={reset}
+				/>
 			</View>
+
+			<PathProgress board={level.board} lines={lines} />
 
 			<View
 				className="flex-1 items-center justify-center px-4"
@@ -85,89 +139,18 @@ export default function PlayScreen() {
 				<BoardView
 					board={level.board}
 					lines={lines}
-					onChangeLines={cleared ? undefined : setLines}
+					onChangeLines={setLines}
 				/>
 			</View>
 
-			{!cleared ? (
-				<View className="px-6">
-					<Button
-						label="リセット"
-						variant="secondary"
-						onPress={() => setLines(linesFromBoard(level.board))}
-					/>
-				</View>
-			) : null}
-
-			{cleared ? (
-				<Animated.View
-					pointerEvents="box-none"
-					style={[
-						StyleSheet.absoluteFill,
-						{
-							opacity: clearAnim,
-							paddingTop: insets.top + 12,
-							paddingBottom: insets.bottom + 16,
-						},
-					]}
-				>
-					<View
-						pointerEvents="none"
-						style={styles.clearBanner}
-					>
-						<Animated.View
-							style={{
-								transform: [
-									{
-										scale: clearAnim.interpolate({
-											inputRange: [0, 1],
-											outputRange: [0.85, 1],
-										}),
-									},
-								],
-							}}
-							className="items-center rounded-3xl bg-amber-50/90 px-10 py-6"
-						>
-							<Text className="font-heading text-5xl text-amber-700">
-								CLEAR!
-							</Text>
-							<Text className="mt-1 text-base text-stone-600">
-								{level.name}
-							</Text>
-						</Animated.View>
-					</View>
-
-					<View style={styles.clearActions} className="px-6">
-						<View className="gap-3">
-							<Button
-								label="次のレベル"
-								onPress={() =>
-									router.replace({
-										pathname: "/play/[id]",
-										params: { id: nextId },
-									})
-								}
-							/>
-							<Button
-								label="レベル選択に戻る"
-								variant="secondary"
-								onPress={() => router.replace("/levels")}
-							/>
-						</View>
-					</View>
-				</Animated.View>
-			) : null}
+			<View className="px-6">
+				<Button
+					label="リセット"
+					variant="secondary"
+					iconLeft="backspace-outline"
+					onPress={reset}
+				/>
+			</View>
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	clearBanner: {
-		...StyleSheet.absoluteFill,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	clearActions: {
-		marginTop: "auto",
-	},
-});
