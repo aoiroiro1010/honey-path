@@ -683,26 +683,43 @@ function applyNumbers(
 	);
 
 	for (const path of paths) {
-		const start = path.coords[0];
-		const internals = path.coords.slice(1, -1);
-		if (internals.length === 0) {
+		// スタート〜ゴール間の、番号を置けるマス（端点・向きマス以外）を経路順に
+		const open: Coord[] = [];
+		for (let i = 1; i < path.coords.length - 1; i++) {
+			const coord = path.coords[i];
+			const cell = byKey.get(axialKey(coord.x, coord.y));
+			if (!cell || cell.start || cell.goal || cell.dirs) {
+				continue;
+			}
+			open.push(coord);
+		}
+		if (open.length === 0) {
 			continue;
 		}
-		const count = Math.min(numbersPerColor, internals.length);
-		const ranked = internals.map((coord, i) => {
-			const pathIndex = i + 1;
-			const detour = pathIndex - hexDistance(start, coord);
-			return { coord, pathIndex, detour };
-		});
-		ranked.sort((a, b) => b.detour - a.detour || b.pathIndex - a.pathIndex);
-		const chosen = ranked
-			.slice(0, count)
-			.sort((a, b) => a.pathIndex - b.pathIndex);
 
+		const count = Math.min(numbersPerColor, open.length);
+		const chosen = new Set<number>();
+		for (let i = 0; i < count; i++) {
+			// 端との間隔も含めて均等になる位置
+			let index = Math.round(((i + 1) * (open.length + 1)) / (count + 1)) - 1;
+			index = Math.max(0, Math.min(open.length - 1, index));
+			while (chosen.has(index) && index < open.length - 1) {
+				index += 1;
+			}
+			while (chosen.has(index) && index > 0) {
+				index -= 1;
+			}
+			if (!chosen.has(index)) {
+				chosen.add(index);
+			}
+		}
+
+		const ordered = [...chosen].sort((a, b) => a - b);
 		let value = 1;
-		for (const item of chosen) {
-			const cell = byKey.get(axialKey(item.coord.x, item.coord.y));
-			if (!cell || cell.start || cell.goal || cell.dirs) {
+		for (const index of ordered) {
+			const coord = open[index];
+			const cell = byKey.get(axialKey(coord.x, coord.y));
+			if (!cell) {
 				continue;
 			}
 			cell.number = { color: path.color, value };
