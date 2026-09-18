@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text } from "react-native";
 import { hapticPress } from "./haptics";
+import { theme } from "./theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -20,7 +21,9 @@ export function Button({
 	iconRight,
 }: Props) {
 	const primary = variant === "primary";
-	const color = primary ? "#451a03" : "#44403c";
+	const color = primary
+		? theme.icon.onPrimaryButton
+		: theme.icon.onSecondaryButton;
 	return (
 		<Pressable
 			onPress={() => {
@@ -74,7 +77,7 @@ export function IconButton({
 			<Ionicons
 				name={name}
 				size={22}
-				color={disabled ? "#d6d3d1" : "#57534e"}
+				color={disabled ? theme.icon.onLightDisabled : theme.icon.onLight}
 			/>
 		</Pressable>
 	);

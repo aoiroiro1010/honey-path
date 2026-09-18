@@ -3,7 +3,8 @@ import type { Line } from "./line";
 
 export type Board = {
 	cells: Cell[];
-	lines: Line[];
+	/** 正解の色ごとの経路（進捗表示・生成用）。プレイヤー線とは別 */
+	solution: Line[];
 };
 
 export function cellAt(board: Board, x: number, y: number): Cell | undefined {

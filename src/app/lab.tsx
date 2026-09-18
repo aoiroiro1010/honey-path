@@ -2,28 +2,19 @@ import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
-	Pressable,
 	ScrollView,
 	Text,
 	TextInput,
 	View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { isBoardCleared, linesFromBoard } from "@/game/draw";
-import { generateBoard } from "@/game/generate";
+import { generateBoard, parseDifficulty, parseIntField } from "@/game/generate";
 import type { Difficulty } from "@/game/generate/difficulty";
 import type { Board } from "@/game/model/board";
-import type { Line } from "@/game/model/line";
-import { Button } from "@/ui/Button";
+import { Button, Screen, ScreenHeader, useBoardSession } from "@/ui";
 import { BoardView } from "@/ui/board";
-import { hapticSuccess } from "@/ui/haptics";
+import { theme } from "@/ui/theme";
 
 type FieldKey = keyof Difficulty | "seed";
-
-function parseIntField(value: string, fallback: number): number {
-	const n = Number(value);
-	return Number.isFinite(n) ? Math.trunc(n) : fallback;
-}
 
 function ParamField({
 	label,
@@ -49,7 +40,6 @@ function ParamField({
 
 export default function LabScreen() {
 	const router = useRouter();
-	const insets = useSafeAreaInsets();
 
 	const [seedText, setSeedText] = useState("13");
 	const [radiusText, setRadiusText] = useState("5");
@@ -58,11 +48,11 @@ export default function LabScreen() {
 	const [numbersText, setNumbersText] = useState("0");
 
 	const [board, setBoard] = useState<Board | null>(null);
-	const [lines, setLines] = useState<Line[]>([]);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [meta, setMeta] = useState<string | null>(null);
-	const [cleared, setCleared] = useState(false);
+
+	const { lines, setLines, cleared, reset } = useBoardSession(board);
 
 	const fields: {
 		key: FieldKey;
@@ -97,30 +87,30 @@ export default function LabScreen() {
 		},
 	];
 
-	const difficultyPreview = useMemo((): Difficulty => {
-		return {
-			radius: Math.max(1, parseIntField(radiusText, 5)),
-			colorCount: Math.max(1, Math.min(6, parseIntField(colorCountText, 1))),
-			holeCount: Math.max(0, parseIntField(holeCountText, 0)),
-			numbersPerColor: Math.max(0, parseIntField(numbersText, 0)),
-		};
-	}, [radiusText, colorCountText, holeCountText, numbersText]);
+	const difficultyPreview = useMemo(
+		() =>
+			parseDifficulty({
+				radius: radiusText,
+				colorCount: colorCountText,
+				holeCount: holeCountText,
+				numbersPerColor: numbersText,
+			}),
+		[radiusText, colorCountText, holeCountText, numbersText],
+	);
 
 	const generate = useCallback(() => {
 		const seed = parseIntField(seedText, 1);
-		const difficulty: Difficulty = {
-			radius: Math.max(1, parseIntField(radiusText, 5)),
-			colorCount: Math.max(1, Math.min(6, parseIntField(colorCountText, 1))),
-			holeCount: Math.max(0, parseIntField(holeCountText, 0)),
-			numbersPerColor: Math.max(0, parseIntField(numbersText, 0)),
-		};
+		const difficulty = parseDifficulty({
+			radius: radiusText,
+			colorCount: colorCountText,
+			holeCount: holeCountText,
+			numbersPerColor: numbersText,
+		});
 
 		setBusy(true);
 		setError(null);
-		setCleared(false);
 		setMeta(null);
 
-		// 生成が重いので1フレーム空けて UI を更新してから走る
 		requestAnimationFrame(() => {
 			try {
 				const t0 = Date.now();
@@ -131,13 +121,11 @@ export default function LabScreen() {
 				const colors = next.cells.filter((c) => c.start).length;
 				const nums = next.cells.filter((c) => c.number).length;
 				setBoard(next);
-				setLines(linesFromBoard(next));
 				setMeta(
 					`${ms}ms · ${cells}マス · ${colors}色 · 向き${dirs} · 番号${nums}`,
 				);
 			} catch (e) {
 				setBoard(null);
-				setLines([]);
 				setError(e instanceof Error ? e.message : "生成に失敗しました");
 			} finally {
 				setBusy(false);
@@ -145,32 +133,9 @@ export default function LabScreen() {
 		});
 	}, [seedText, radiusText, colorCountText, holeCountText, numbersText]);
 
-	const onChangeLines = useCallback(
-		(next: Line[]) => {
-			setLines(next);
-			if (!board || cleared) {
-				return;
-			}
-			if (isBoardCleared(board, next)) {
-				setCleared(true);
-				hapticSuccess();
-			}
-		},
-		[board, cleared],
-	);
-
 	return (
-		<View
-			className="flex-1 bg-amber-50"
-			style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }}
-		>
-			<View className="mb-3 flex-row items-center justify-between px-6">
-				<Pressable onPress={() => router.back()} hitSlop={12}>
-					<Text className="text-base text-stone-600">戻る</Text>
-				</Pressable>
-				<Text className="font-heading text-xl text-amber-950">生成テスト</Text>
-				<View className="w-10" />
-			</View>
+		<Screen>
+			<ScreenHeader title="生成テスト" onBack={() => router.back()} />
 
 			<ScrollView
 				className="flex-1"
@@ -205,7 +170,7 @@ export default function LabScreen() {
 
 				{busy ? (
 					<View className="items-center py-2">
-						<ActivityIndicator color="#78350f" />
+						<ActivityIndicator color={theme.spinner} />
 					</View>
 				) : null}
 
@@ -219,24 +184,14 @@ export default function LabScreen() {
 
 				{board ? (
 					<>
-						<View
-							className="items-center justify-center py-2"
-							style={{ userSelect: "none" }}
-						>
+						<View className="items-center justify-center py-2">
 							<BoardView
 								board={board}
 								lines={lines}
-								onChangeLines={onChangeLines}
+								onChangeLines={cleared ? undefined : setLines}
 							/>
 						</View>
-						<Button
-							label="リセット"
-							variant="secondary"
-							onPress={() => {
-								setCleared(false);
-								setLines(linesFromBoard(board));
-							}}
-						/>
+						<Button label="リセット" variant="secondary" onPress={reset} />
 					</>
 				) : (
 					<Text className="text-center text-sm text-stone-500">
@@ -244,6 +199,6 @@ export default function LabScreen() {
 					</Text>
 				)}
 			</ScrollView>
-		</View>
+		</Screen>
 	);
 }

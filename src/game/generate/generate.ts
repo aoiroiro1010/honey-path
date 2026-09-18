@@ -665,7 +665,7 @@ function stripDirsToUnique(
 			}
 			return next;
 		}),
-		lines: board.lines,
+		solution: board.solution,
 	};
 }
 
@@ -744,7 +744,10 @@ function buildBoard(
 
 	let board: Board = {
 		cells,
-		lines: paths.map((path) => ({ color: path.color, coords: [] })),
+		solution: paths.map((path) => ({
+			color: path.color,
+			coords: path.coords.map((c) => ({ x: c.x, y: c.y })),
+		})),
 	};
 	board = stripDirsToUnique(board, paths, rng);
 
@@ -795,7 +798,7 @@ function fallbackBoard(seed: number): Board {
 			{ x: 0, y: 0, start: { color: "red" } },
 			{ x: 1, y: 0, goal: { color: "red" } },
 		],
-		lines: [{ color: "red", coords: [] }],
+		solution: [{ color: "red", coords: [] }],
 	};
 }
 

@@ -9,7 +9,7 @@ export const lineBoard: Board = {
 		{ x: 2, y: 1 },
 		{ x: 3, y: 0, goal: { color: "red" } },
 	],
-	lines: [
+	solution: [
 		{
 			color: "red",
 			coords: [
@@ -34,7 +34,7 @@ export const colorsBoard: Board = {
 		{ x: 1, y: 1 },
 		{ x: 2, y: 1, goal: { color: "blue" } },
 	],
-	lines: [
+	solution: [
 		{
 			color: "red",
 			coords: [
@@ -65,7 +65,7 @@ export const dirsBoard: Board = {
 		{ x: 2, y: 1, dirs: { a: "TL", b: "L" } },
 		{ x: 0, y: 1, goal: { color: "red" } },
 	],
-	lines: [
+	solution: [
 		{
 			color: "red",
 			coords: [
@@ -90,7 +90,7 @@ export const numbersBoard: Board = {
 		{ x: 2, y: -1, number: { color: "red", value: 2 } },
 		{ x: 0, y: -1, goal: { color: "red" } },
 	],
-	lines: [
+	solution: [
 		{
 			color: "red",
 			coords: [

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-native";
 import { useState } from "react";
 import { View } from "react-native";
-import { linesFromBoard } from "@/game/draw";
 import { sampleBoard } from "@/game/levels/samples";
+import { linesFromBoard } from "@/game/play";
 
 import { BoardView } from "./BoardView";
 
@@ -25,12 +25,14 @@ type Story = StoryObj<typeof meta>;
 export const Sample: Story = {
 	args: {
 		board: sampleBoard,
+		lines: linesFromBoard(sampleBoard),
 	},
 };
 
 export const Playable: Story = {
 	args: {
 		board: sampleBoard,
+		lines: linesFromBoard(sampleBoard),
 	},
 	render: (args) => {
 		const [lines, setLines] = useState(() => linesFromBoard(args.board));

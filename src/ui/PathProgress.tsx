@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import type { Board } from "@/game/model/board";
 import type { Line } from "@/game/model/line";
-import { COLOR_HEX } from "@/ui/board/palette";
+import { COLOR_HEX } from "./board/palette";
 
 type Props = {
 	board: Board;
@@ -9,15 +9,15 @@ type Props = {
 };
 
 export function PathProgress({ board, lines }: Props) {
-	const items = board.lines.map((solution) => {
+	const items = board.solution.map((path) => {
 		const current =
-			lines.find((line) => line.color === solution.color)?.coords.length ?? 0;
-		const total = Math.max(1, solution.coords.length);
+			lines.find((line) => line.color === path.color)?.coords.length ?? 0;
+		const total = Math.max(1, path.coords.length);
 		return {
-			color: solution.color,
+			color: path.color,
 			current: Math.min(current, total),
 			total,
-			hex: COLOR_HEX[solution.color],
+			hex: COLOR_HEX[path.color],
 		};
 	});
 

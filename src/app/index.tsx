@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button } from "@/ui/Button";
+import { Button, Screen } from "@/ui";
 import { COLOR_HEX } from "@/ui/board/palette";
+import { theme } from "@/ui/theme";
 
 const LOGO_COLORS = [
 	COLOR_HEX.green,
@@ -13,23 +13,16 @@ const LOGO_COLORS = [
 
 export default function TitleScreen() {
 	const router = useRouter();
-	const insets = useSafeAreaInsets();
 
 	return (
-		<View
-			className="flex-1 bg-amber-50 px-8"
-			style={{ paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }}
-		>
+		<Screen spacious className="px-8">
 			<View className="flex-1 items-center justify-center">
 				<View className="mb-5 flex-row gap-2">
 					{LOGO_COLORS.map((color) => (
 						<View
 							key={color}
-							className="h-5 w-5 rounded-md"
-							style={{
-								backgroundColor: color,
-								transform: [{ rotate: "30deg" }],
-							}}
+							className="h-5 w-5 rotate-[30deg] rounded-md"
+							style={{ backgroundColor: color }}
 						/>
 					))}
 				</View>
@@ -38,7 +31,7 @@ export default function TitleScreen() {
 					色の違う線で、六角形のマスを埋め尽くす一筆書き
 				</Text>
 				<View className="mt-8 opacity-80">
-					<Ionicons name="grid-outline" size={56} color="#d97706" />
+					<Ionicons name="grid-outline" size={56} color={theme.icon.accent} />
 				</View>
 			</View>
 			<View className="gap-3">
@@ -54,6 +47,6 @@ export default function TitleScreen() {
 					onPress={() => router.push("/lab")}
 				/>
 			</View>
-		</View>
+		</Screen>
 	);
 }

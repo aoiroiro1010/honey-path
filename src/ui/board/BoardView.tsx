@@ -1,22 +1,23 @@
 import { useMemo, useRef } from "react";
 import { View } from "react-native";
+import type { Board } from "@/game/model/board";
+import type { Color } from "@/game/model/color";
+import type { Line } from "@/game/model/line";
 import {
 	beginAtStart,
 	clearLine,
 	lineAtCell,
 	truncateLine,
 	tryExtend,
-} from "@/game/draw";
-import type { Board } from "@/game/model/board";
-import type { Color } from "@/game/model/color";
-import type { Line } from "@/game/model/line";
+} from "@/game/play";
 import { hapticCell, hapticClear } from "../haptics";
 import { CellView } from "./CellView";
 import { CELL_SIZE, CELL_VIEW_SIZE, cellToPixel } from "./hexLayout";
 
 type Props = {
 	board: Board;
-	lines?: Line[];
+	/** プレイヤーの線。未指定にすると解答線を出さないよう必須にする */
+	lines: Line[];
 	onChangeLines?: (lines: Line[]) => void;
 };
 
@@ -31,7 +32,7 @@ function lineLength(lines: Line[], color: Color): number {
 }
 
 export function BoardView({ board, lines, onChangeLines }: Props) {
-	const drawn = lines ?? board.lines;
+	const drawn = lines;
 	const interactive = Boolean(onChangeLines);
 
 	const positions = useMemo(() => {
