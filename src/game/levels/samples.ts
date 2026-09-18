@@ -5,7 +5,9 @@ export const lineBoard: Board = {
 	cells: [
 		{ x: 0, y: 0, start: { color: "red" } },
 		{ x: 1, y: 0 },
-		{ x: 2, y: 0, goal: { color: "red" } },
+		{ x: 1, y: 1 },
+		{ x: 2, y: 1 },
+		{ x: 3, y: 0, goal: { color: "red" } },
 	],
 	lines: [{ color: "red", coords: [] }],
 };
@@ -17,6 +19,7 @@ export const colorsBoard: Board = {
 		{ x: 1, y: 0 },
 		{ x: 2, y: 0, goal: { color: "red" } },
 		{ x: 0, y: 1, start: { color: "blue" } },
+		{ x: 0, y: 2 },
 		{ x: 1, y: 1 },
 		{ x: 2, y: 1, goal: { color: "blue" } },
 	],
@@ -30,8 +33,10 @@ export const colorsBoard: Board = {
 export const dirsBoard: Board = {
 	cells: [
 		{ x: 0, y: 0, start: { color: "red" } },
-		{ x: 1, y: 0, dirs: { a: "L", b: "BR" } },
-		{ x: 1, y: 1, dirs: { a: "TL", b: "L" } },
+		{ x: 1, y: 0 },
+		{ x: 2, y: 0, dirs: { a: "L", b: "BR" } },
+		{ x: 1, y: 1 },
+		{ x: 2, y: 1, dirs: { a: "TL", b: "L" } },
 		{ x: 0, y: 1, goal: { color: "red" } },
 	],
 	lines: [{ color: "red", coords: [] }],
@@ -41,8 +46,10 @@ export const dirsBoard: Board = {
 export const numbersBoard: Board = {
 	cells: [
 		{ x: 0, y: 0, start: { color: "red" } },
-		{ x: 1, y: 0, number: { color: "red", value: 1 } },
-		{ x: 1, y: -1, number: { color: "red", value: 2 } },
+		{ x: 1, y: -1 },
+		{ x: 1, y: 0 },
+		{ x: 2, y: 0, number: { color: "red", value: 1 } },
+		{ x: 2, y: -1, number: { color: "red", value: 2 } },
 		{ x: 0, y: -1, goal: { color: "red" } },
 	],
 	lines: [{ color: "red", coords: [] }],
