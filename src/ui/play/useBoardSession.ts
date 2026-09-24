@@ -48,7 +48,7 @@ export function useBoardSession(
 		if (animateClear) {
 			Animated.timing(clearOpacity, {
 				toValue: 1,
-				duration: 280,
+				duration: 180,
 				useNativeDriver: true,
 			}).start();
 		} else {
