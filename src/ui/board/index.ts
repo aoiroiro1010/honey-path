@@ -6,4 +6,4 @@ export {
 	CELL_VIEW_SIZE,
 	cellToPixel,
 } from "./hexLayout";
-export { COLOR_HEX } from "./palette";
+export { COLOR_HEX, paleColorHex } from "./palette";

@@ -12,7 +12,7 @@ import type { Cell } from "@/game/model/cell";
 import type { Color } from "@/game/model/color";
 import type { HexDir } from "@/game/model/hex";
 import { CELL_PAD, CELL_SIZE, CELL_VIEW_SIZE } from "./hexLayout";
-import { COLOR_HEX } from "./palette";
+import { COLOR_HEX, paleColorHex } from "./palette";
 
 const SIZE = CELL_SIZE;
 const PAD = CELL_PAD;
@@ -38,6 +38,8 @@ const DIR_DEG: Record<HexDir, number> = {
 
 type Props = {
 	cell: Cell;
+	/** このマスを占めている線の色（背景の薄い色に使う） */
+	occupant?: Color;
 	line?: {
 		color: Color;
 		dirs: {
@@ -137,9 +139,10 @@ function NumberMark({ color, value }: { color: Color; value: number }) {
 	);
 }
 
-export function CellView({ cell, line }: Props) {
+export function CellView({ cell, line, occupant }: Props) {
 	const clipId = `dirs-${useId().replace(/:/g, "")}`;
 	const points = hexPoints();
+	const fill = occupant ? paleColorHex(occupant) : CELL_FILL;
 
 	return (
 		<Svg width={DIM} height={DIM} style={{ userSelect: "none" }}>
@@ -150,7 +153,7 @@ export function CellView({ cell, line }: Props) {
 			</Defs>
 			<Polygon
 				points={points}
-				fill={CELL_FILL}
+				fill={fill}
 				stroke={CELL_STROKE}
 				strokeWidth={1.5}
 			/>
@@ -175,7 +178,7 @@ export function CellView({ cell, line }: Props) {
 							edgePoint(cell.dirs.b),
 						])}
 						fill="none"
-						stroke={CELL_FILL}
+						stroke={fill}
 						strokeWidth={LINE_WIDTH}
 						strokeLinecap="round"
 						strokeLinejoin="round"

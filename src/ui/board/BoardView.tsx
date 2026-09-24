@@ -7,6 +7,7 @@ import {
 	beginAtStart,
 	clearLine,
 	lineAtCell,
+	occupantAt,
 	truncateLine,
 	tryExtend,
 } from "@/game/play";
@@ -255,7 +256,11 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 								height: CELL_VIEW_SIZE,
 							}}
 						>
-							<CellView cell={cell} line={lineAtCell(drawn, cell.x, cell.y)} />
+							<CellView
+								cell={cell}
+								line={lineAtCell(drawn, cell.x, cell.y)}
+								occupant={occupantAt(drawn, cell.x, cell.y)}
+							/>
 						</View>
 					))}
 				</View>
