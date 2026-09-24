@@ -176,9 +176,7 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 			onResponderGrant={
 				interactive
 					? (event) => {
-							if (typeof window !== "undefined") {
-								window.getSelection()?.removeAllRanges();
-							}
+							window.getSelection?.()?.removeAllRanges();
 							const cell = hitCell(
 								event.nativeEvent.locationX,
 								event.nativeEvent.locationY,

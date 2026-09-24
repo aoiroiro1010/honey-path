@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { getLevel, nextLevelId } from "@/game/levels";
 import { ClearedView, PlayingView, Screen, usePlaySession } from "@/ui";
 
@@ -20,31 +20,33 @@ export default function PlayScreen() {
 			params: { id: nextLevelId(level.id) },
 		});
 
-	if (cleared) {
-		return (
-			<Screen tone="clear">
-				<ClearedView
-					board={level.board}
-					lines={lines}
-					levelName={level.name}
-					opacity={clearOpacity}
-					onNext={goNext}
-					onLevels={goLevels}
-				/>
-			</Screen>
-		);
-	}
-
 	return (
-		<Screen>
-			<PlayingView
-				board={level.board}
-				lines={lines}
-				title={level.name}
-				onChangeLines={setLines}
-				onBack={goLevels}
-				onReset={reset}
-			/>
-		</Screen>
+		<>
+			{/* 盤面ドラッグと iOS の戻るスワイプが競合するので無効化 */}
+			<Stack.Screen options={{ gestureEnabled: false }} />
+			{cleared ? (
+				<Screen tone="clear">
+					<ClearedView
+						board={level.board}
+						lines={lines}
+						levelName={level.name}
+						opacity={clearOpacity}
+						onNext={goNext}
+						onLevels={goLevels}
+					/>
+				</Screen>
+			) : (
+				<Screen>
+					<PlayingView
+						board={level.board}
+						lines={lines}
+						title={level.name}
+						onChangeLines={setLines}
+						onBack={goLevels}
+						onReset={reset}
+					/>
+				</Screen>
+			)}
+		</>
 	);
 }
