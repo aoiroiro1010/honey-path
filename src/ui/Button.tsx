@@ -1,9 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text } from "react-native";
-import { hapticPress } from "./haptics";
+import { hapticPress, hapticReset } from "./haptics";
 import { theme } from "./theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+type Feedback = "press" | "reset";
+
+function runFeedback(feedback: Feedback) {
+	if (feedback === "reset") {
+		hapticReset();
+		return;
+	}
+	hapticPress();
+}
 
 type Props = {
 	label: string;
@@ -11,6 +20,7 @@ type Props = {
 	variant?: "primary" | "secondary";
 	iconLeft?: IconName;
 	iconRight?: IconName;
+	feedback?: Feedback;
 };
 
 export function Button({
@@ -19,6 +29,7 @@ export function Button({
 	variant = "primary",
 	iconLeft,
 	iconRight,
+	feedback = "press",
 }: Props) {
 	const primary = variant === "primary";
 	const color = primary
@@ -27,7 +38,7 @@ export function Button({
 	return (
 		<Pressable
 			onPress={() => {
-				hapticPress();
+				runFeedback(feedback);
 				onPress();
 			}}
 			className={`flex-row items-center justify-center gap-2 rounded-full px-8 py-4 ${
@@ -52,6 +63,7 @@ type IconButtonProps = {
 	onPress: () => void;
 	disabled?: boolean;
 	accessibilityLabel: string;
+	feedback?: Feedback;
 };
 
 export function IconButton({
@@ -59,6 +71,7 @@ export function IconButton({
 	onPress,
 	disabled,
 	accessibilityLabel,
+	feedback = "press",
 }: IconButtonProps) {
 	return (
 		<Pressable
@@ -69,7 +82,7 @@ export function IconButton({
 				if (disabled) {
 					return;
 				}
-				hapticPress();
+				runFeedback(feedback);
 				onPress();
 			}}
 			className="h-11 w-11 items-center justify-center rounded-full bg-white/80"

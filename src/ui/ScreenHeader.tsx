@@ -24,6 +24,7 @@ export function ScreenHeader({ title, onBack, onReset, trailing }: Props) {
 				<IconButton
 					name="refresh"
 					accessibilityLabel="リセット"
+					feedback="reset"
 					onPress={onReset}
 				/>
 			) : (

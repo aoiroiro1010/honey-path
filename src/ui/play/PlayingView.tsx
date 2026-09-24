@@ -35,6 +35,7 @@ export function PlayingView({
 					label="リセット"
 					variant="secondary"
 					iconLeft="backspace-outline"
+					feedback="reset"
 					onPress={onReset}
 				/>
 			</View>

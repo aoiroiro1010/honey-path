@@ -8,6 +8,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { useProgress } from "@/game/levels";
+import { prepareAudio, startBgm } from "@/ui/audio";
 
 import "../global.css";
 
@@ -23,6 +24,10 @@ export default function RootLayout() {
 	const ready = fontsReady && hydrated;
 
 	useEffect(() => {
+		void prepareAudio();
+	}, []);
+
+	useEffect(() => {
 		const unsub = useProgress.persist.onFinishHydration(() => {
 			setHydrated(true);
 		});
@@ -33,9 +38,14 @@ export default function RootLayout() {
 	}, []);
 
 	useEffect(() => {
-		if (ready) {
-			void SplashScreen.hideAsync();
+		if (!ready) {
+			return;
 		}
+		void (async () => {
+			await prepareAudio();
+			startBgm();
+			await SplashScreen.hideAsync();
+		})();
 	}, [ready]);
 
 	if (!ready) {

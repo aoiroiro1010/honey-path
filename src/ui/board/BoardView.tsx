@@ -11,7 +11,7 @@ import {
 	truncateLine,
 	tryExtend,
 } from "@/game/play";
-import { hapticCell, hapticClear } from "../haptics";
+import { hapticBlocked, hapticCell, hapticClear } from "../haptics";
 import { CellView } from "./CellView";
 import { CELL_SIZE, CELL_VIEW_SIZE, cellToPixel } from "./hexLayout";
 
@@ -25,6 +25,7 @@ type DragState = {
 	color: Color | null;
 	pendingStart: Color | null;
 	moved: boolean;
+	blockedKey: string | null;
 };
 
 function lineLength(lines: Line[], color: Color): number {
@@ -72,6 +73,7 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		color: null,
 		pendingStart: null,
 		moved: false,
+		blockedKey: null,
 	});
 
 	function hitCell(touchX: number, touchY: number) {
@@ -158,9 +160,16 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		const before = lineLength(current, color);
 		const extended = tryExtend(board, current, color, cell);
 		if (extended && lineLength(extended, color) > before) {
+			state.blockedKey = null;
 			apply(extended, "cell");
 		} else if (extended) {
 			apply(extended, "silent");
+		} else {
+			const key = `${cell.x},${cell.y}`;
+			if (state.blockedKey !== key) {
+				state.blockedKey = key;
+				hapticBlocked();
+			}
 		}
 	}
 
@@ -172,6 +181,7 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		state.color = null;
 		state.pendingStart = null;
 		state.moved = false;
+		state.blockedKey = null;
 	}
 
 	function touchToBoard(locationX: number, locationY: number) {
