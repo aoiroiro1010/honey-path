@@ -196,9 +196,9 @@ function SettingsSheet({
 					</View>
 
 					<Button
-						label="生成テスト"
+						label="カスタム問題"
 						variant="secondary"
-						iconLeft="flask-outline"
+						iconLeft="grid-outline"
 						onPress={onLab}
 					/>
 				</Pressable>

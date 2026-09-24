@@ -39,9 +39,8 @@ export function hapticReset() {
 	run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
 }
 
-/** 伸ばせないとき */
+/** 伸ばせないとき（誤操作でも頻発するため SE は鳴らさない） */
 export function hapticBlocked() {
-	playSfx("blocked");
 	run(() =>
 		Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
 	);

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View } from "react-native";
 import type { Board } from "@/game/model/board";
 import type { Line } from "@/game/model/line";
@@ -10,9 +11,10 @@ type Props = {
 	board: Board;
 	lines: Line[];
 	title: string;
-	onChangeLines: (lines: Line[]) => void;
+	onChangeLines?: (lines: Line[]) => void;
 	onBack: () => void;
 	onReset: () => void;
+	trailing?: ReactNode;
 };
 
 export function PlayingView({
@@ -22,10 +24,16 @@ export function PlayingView({
 	onChangeLines,
 	onBack,
 	onReset,
+	trailing,
 }: Props) {
 	return (
 		<View className="flex-1">
-			<ScreenHeader title={title} onBack={onBack} onReset={onReset} />
+			<ScreenHeader
+				title={title}
+				onBack={onBack}
+				onReset={onReset}
+				trailing={trailing}
+			/>
 			<PathProgress board={board} lines={lines} />
 			<View className="w-full flex-1 px-4">
 				<BoardView board={board} lines={lines} onChangeLines={onChangeLines} />
