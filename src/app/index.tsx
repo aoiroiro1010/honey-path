@@ -12,10 +12,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Ellipse, Path, Polygon } from "react-native-svg";
-import { BgmToggle } from "@/ui/BgmToggle";
+import { startBgm, stopBgm } from "@/ui/audio";
+import { useAudioPrefs } from "@/ui/audioPrefs";
 import { Button } from "@/ui/Button";
 import { COLOR_HEX } from "@/ui/board/palette";
 import { hapticPress } from "@/ui/haptics";
+import { SettingSwitch } from "@/ui/SettingSwitch";
 import { theme } from "@/ui/theme";
 
 const BG = require("../../assets/images/background.png");
@@ -165,6 +167,13 @@ function SettingsSheet({
 	onLab: () => void;
 }) {
 	const insets = useSafeAreaInsets();
+	const bgmEnabled = useAudioPrefs((state) => state.bgmEnabled);
+	const sfxEnabled = useAudioPrefs((state) => state.sfxEnabled);
+	const hapticsEnabled = useAudioPrefs((state) => state.hapticsEnabled);
+	const setBgmEnabled = useAudioPrefs((state) => state.setBgmEnabled);
+	const setSfxEnabled = useAudioPrefs((state) => state.setSfxEnabled);
+	const setHapticsEnabled = useAudioPrefs((state) => state.setHapticsEnabled);
+
 	return (
 		<Modal
 			visible={visible}
@@ -190,10 +199,28 @@ function SettingsSheet({
 						</Pressable>
 					</View>
 
-					<View className="mb-4 flex-row items-center justify-between rounded-2xl bg-white px-4 py-3">
-						<Text className="font-heading text-base text-stone-700">BGM</Text>
-						<BgmToggle />
-					</View>
+					<SettingSwitch
+						label="BGM"
+						value={bgmEnabled}
+						onValueChange={(next) => {
+							setBgmEnabled(next);
+							if (next) {
+								startBgm();
+							} else {
+								stopBgm();
+							}
+						}}
+					/>
+					<SettingSwitch
+						label="効果音"
+						value={sfxEnabled}
+						onValueChange={setSfxEnabled}
+					/>
+					<SettingSwitch
+						label="振動"
+						value={hapticsEnabled}
+						onValueChange={setHapticsEnabled}
+					/>
 
 					<Button
 						label="カスタム問題"

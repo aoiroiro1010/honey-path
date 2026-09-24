@@ -1,7 +1,11 @@
 import * as Haptics from "expo-haptics";
 import { playSfx } from "./audio";
+import { useAudioPrefs } from "./audioPrefs";
 
-function run(task: () => Promise<void>) {
+function runHaptic(task: () => Promise<void>) {
+	if (!useAudioPrefs.getState().hapticsEnabled) {
+		return;
+	}
 	void task().catch(() => {
 		/* web / unsupported device */
 	});
@@ -10,19 +14,19 @@ function run(task: () => Promise<void>) {
 /** マスに線が進んだとき */
 export function hapticCell() {
 	playSfx("cell");
-	run(() => Haptics.selectionAsync());
+	runHaptic(() => Haptics.selectionAsync());
 }
 
 /** 線を消した・戻したとき */
 export function hapticClear() {
 	playSfx("erase");
-	run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+	runHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
 }
 
 /** レベルクリア */
 export function hapticSuccess() {
 	playSfx("clear");
-	run(() =>
+	runHaptic(() =>
 		Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
 	);
 }
@@ -30,18 +34,18 @@ export function hapticSuccess() {
 /** ボタン押下 */
 export function hapticPress() {
 	playSfx("tap");
-	run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+	runHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
 }
 
 /** リセット */
 export function hapticReset() {
 	playSfx("reset");
-	run(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
+	runHaptic(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
 }
 
 /** 伸ばせないとき（誤操作でも頻発するため SE は鳴らさない） */
 export function hapticBlocked() {
-	run(() =>
+	runHaptic(() =>
 		Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
 	);
 }

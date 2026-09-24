@@ -76,6 +76,10 @@ export function prepareAudio(): Promise<void> {
 
 /** 効果音（ホットパスでは await しない） */
 export function playSfx(name: SfxName) {
+	if (!useAudioPrefs.getState().sfxEnabled) {
+		return;
+	}
+
 	const players = pools.get(name);
 	if (!players?.length) {
 		void prepareAudio().then(() => playSfx(name));
