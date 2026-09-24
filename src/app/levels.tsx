@@ -6,7 +6,7 @@ import {
 	useProgress,
 	visibleLevelNumbers,
 } from "@/game/levels";
-import { HexLevelTile, Screen, ScreenHeader } from "@/ui";
+import { BgmToggle, HexLevelTile, Screen, ScreenHeader } from "@/ui";
 import { theme } from "@/ui/theme";
 
 export default function LevelsScreen() {
@@ -21,11 +21,14 @@ export default function LevelsScreen() {
 				title="レベル選択"
 				onBack={() => router.back()}
 				trailing={
-					<View className="min-w-11 flex-row items-center justify-end gap-1">
-						<Ionicons name="trophy" size={18} color={theme.icon.accent} />
-						<Text className="font-heading text-base text-amber-800">
-							{clearedCount}
-						</Text>
+					<View className="min-w-11 flex-row items-center justify-end gap-2">
+						<View className="flex-row items-center gap-1">
+							<Ionicons name="trophy" size={18} color={theme.icon.accent} />
+							<Text className="font-heading text-base text-amber-800">
+								{clearedCount}
+							</Text>
+						</View>
+						<BgmToggle />
 					</View>
 				}
 			/>

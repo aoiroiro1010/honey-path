@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { useProgress } from "@/game/levels";
 import { prepareAudio, startBgm } from "@/ui/audio";
+import { useAudioPrefs } from "@/ui/audioPrefs";
 
 import "../global.css";
 
@@ -20,8 +21,11 @@ export default function RootLayout() {
 		ZenMaruGothic_700Bold,
 	});
 	const [hydrated, setHydrated] = useState(useProgress.persist.hasHydrated());
+	const [audioHydrated, setAudioHydrated] = useState(
+		useAudioPrefs.persist.hasHydrated(),
+	);
 	const fontsReady = fontsLoaded || Boolean(fontError);
-	const ready = fontsReady && hydrated;
+	const ready = fontsReady && hydrated && audioHydrated;
 
 	useEffect(() => {
 		void prepareAudio();
@@ -33,6 +37,16 @@ export default function RootLayout() {
 		});
 		if (useProgress.persist.hasHydrated()) {
 			setHydrated(true);
+		}
+		return unsub;
+	}, []);
+
+	useEffect(() => {
+		const unsub = useAudioPrefs.persist.onFinishHydration(() => {
+			setAudioHydrated(true);
+		});
+		if (useAudioPrefs.persist.hasHydrated()) {
+			setAudioHydrated(true);
 		}
 		return unsub;
 	}, []);

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
-import { Button, Screen } from "@/ui";
+import { BgmToggle, Button, Screen } from "@/ui";
 import { COLOR_HEX } from "@/ui/board/palette";
 import { theme } from "@/ui/theme";
 
@@ -16,6 +16,9 @@ export default function TitleScreen() {
 
 	return (
 		<Screen spacious className="px-8">
+			<View className="absolute right-4 top-2 z-10">
+				<BgmToggle />
+			</View>
 			<View className="flex-1 items-center justify-center">
 				<View className="mb-5 flex-row gap-2">
 					{LOGO_COLORS.map((color) => (

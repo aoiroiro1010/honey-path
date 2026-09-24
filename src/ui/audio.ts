@@ -4,6 +4,7 @@ import {
 	preload,
 	setAudioModeAsync,
 } from "expo-audio";
+import { useAudioPrefs } from "./audioPrefs";
 
 const SFX = {
 	cell: require("../../assets/audio/sfx/cell.wav"),
@@ -101,11 +102,14 @@ export function playSfx(name: SfxName) {
 	});
 }
 
-/** アプリ全体の BGM（ループ）。SE 準備のあとで開始 */
+/** アプリ全体の BGM（ループ）。設定オフなら開始しない */
 export function startBgm() {
 	void (async () => {
 		try {
 			await prepareAudio();
+			if (!useAudioPrefs.getState().bgmEnabled) {
+				return;
+			}
 			if (!bgmPlayer) {
 				bgmPlayer = createAudioPlayer(BGM, {
 					keepAudioSessionActive: true,

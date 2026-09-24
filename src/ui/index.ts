@@ -1,3 +1,5 @@
+export { useAudioPrefs } from "./audioPrefs";
+export { BgmToggle } from "./BgmToggle";
 export { Button, IconButton } from "./Button";
 export { BoardView } from "./board";
 export { COLOR_HEX } from "./board/palette";
