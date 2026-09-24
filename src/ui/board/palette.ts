@@ -17,7 +17,6 @@ export function paleColorHex(color: Color, mix = 0.78): string {
 	const b = Number.parseInt(hex.slice(4, 6), 16);
 	const blend = (channel: number) =>
 		Math.round(channel + (255 - channel) * mix);
-	const toHex = (channel: number) =>
-		channel.toString(16).padStart(2, "0");
+	const toHex = (channel: number) => channel.toString(16).padStart(2, "0");
 	return `#${toHex(blend(r))}${toHex(blend(g))}${toHex(blend(b))}`;
 }
