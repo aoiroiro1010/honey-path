@@ -19,7 +19,7 @@ export default function LevelsScreen() {
 		<Screen>
 			<ScreenHeader
 				title="レベル選択"
-				onBack={() => router.back()}
+				onBack={() => router.dismissTo("/")}
 				trailing={
 					<View className="min-w-11 flex-row items-center justify-end gap-2">
 						<View className="flex-row items-center gap-1">

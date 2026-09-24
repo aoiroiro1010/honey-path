@@ -13,7 +13,7 @@ export default function PlayScreen() {
 		return <Redirect href="/levels" />;
 	}
 
-	const goLevels = () => router.replace("/levels");
+	const goLevels = () => router.dismissTo("/levels");
 	const goNext = () =>
 		router.replace({
 			pathname: "/play/[id]",

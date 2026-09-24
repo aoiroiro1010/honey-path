@@ -135,7 +135,7 @@ export default function LabScreen() {
 
 	return (
 		<Screen>
-			<ScreenHeader title="生成テスト" onBack={() => router.back()} />
+			<ScreenHeader title="生成テスト" onBack={() => router.dismissTo("/")} />
 
 			<ScrollView
 				className="flex-1"
