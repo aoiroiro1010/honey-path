@@ -27,7 +27,7 @@ export function PlayingView({
 		<View className="flex-1">
 			<ScreenHeader title={title} onBack={onBack} onReset={onReset} />
 			<PathProgress board={board} lines={lines} />
-			<View className="flex-1 items-center justify-center px-4">
+			<View className="w-full flex-1 px-4">
 				<BoardView board={board} lines={lines} onChangeLines={onChangeLines} />
 			</View>
 			<View className="px-6">

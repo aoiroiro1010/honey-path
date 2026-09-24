@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import type { Board } from "@/game/model/board";
 import type { Color } from "@/game/model/color";
@@ -16,7 +16,6 @@ import { CELL_SIZE, CELL_VIEW_SIZE, cellToPixel } from "./hexLayout";
 
 type Props = {
 	board: Board;
-	/** プレイヤーの線。未指定にすると解答線を出さないよう必須にする */
 	lines: Line[];
 	onChangeLines?: (lines: Line[]) => void;
 };
@@ -34,6 +33,7 @@ function lineLength(lines: Line[], color: Color): number {
 export function BoardView({ board, lines, onChangeLines }: Props) {
 	const drawn = lines;
 	const interactive = Boolean(onChangeLines);
+	const [avail, setAvail] = useState({ width: 0, height: 0 });
 
 	const positions = useMemo(() => {
 		const items = board.cells.map((cell) => ({
@@ -54,6 +54,16 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 			height: maxTop - minTop + CELL_VIEW_SIZE,
 		};
 	}, [board.cells]);
+
+	// はみ出すときだけ縮小。小さい盤は実寸のまま
+	const scale =
+		avail.width > 0 && avail.height > 0
+			? Math.min(
+					1,
+					avail.width / positions.width,
+					avail.height / positions.height,
+				)
+			: 1;
 
 	const linesRef = useRef(drawn);
 	linesRef.current = drawn;
@@ -163,61 +173,93 @@ export function BoardView({ board, lines, onChangeLines }: Props) {
 		state.moved = false;
 	}
 
+	function touchToBoard(locationX: number, locationY: number) {
+		return {
+			x: scale > 0 ? locationX / scale : locationX,
+			y: scale > 0 ? locationY / scale : locationY,
+		};
+	}
+
 	return (
 		<View
-			style={{
-				width: positions.width,
-				height: positions.height,
-				userSelect: "none",
+			className="w-full flex-1 items-center justify-center"
+			onLayout={(event) => {
+				const { width, height } = event.nativeEvent.layout;
+				setAvail((prev) =>
+					prev.width === width && prev.height === height
+						? prev
+						: { width, height },
+				);
 			}}
-			onStartShouldSetResponder={() => interactive}
-			onMoveShouldSetResponder={() => interactive}
-			onResponderTerminationRequest={() => false}
-			onResponderGrant={
-				interactive
-					? (event) => {
-							window.getSelection?.()?.removeAllRanges();
-							const cell = hitCell(
-								event.nativeEvent.locationX,
-								event.nativeEvent.locationY,
-							);
-							if (cell) {
-								onTouchCell(cell, true);
-							}
-						}
-					: undefined
-			}
-			onResponderMove={
-				interactive
-					? (event) => {
-							const cell = hitCell(
-								event.nativeEvent.locationX,
-								event.nativeEvent.locationY,
-							);
-							if (cell) {
-								onTouchCell(cell, false);
-							}
-						}
-					: undefined
-			}
-			onResponderRelease={interactive ? onRelease : undefined}
-			onResponderTerminate={interactive ? onRelease : undefined}
 		>
-			{positions.items.map(({ cell, left, top }) => (
+			<View
+				style={{
+					width: positions.width * scale,
+					height: positions.height * scale,
+					userSelect: "none",
+				}}
+				onStartShouldSetResponder={() => interactive}
+				onMoveShouldSetResponder={() => interactive}
+				onResponderTerminationRequest={() => false}
+				onResponderGrant={
+					interactive
+						? (event) => {
+								window.getSelection?.()?.removeAllRanges();
+								const { x, y } = touchToBoard(
+									event.nativeEvent.locationX,
+									event.nativeEvent.locationY,
+								);
+								const cell = hitCell(x, y);
+								if (cell) {
+									onTouchCell(cell, true);
+								}
+							}
+						: undefined
+				}
+				onResponderMove={
+					interactive
+						? (event) => {
+								const { x, y } = touchToBoard(
+									event.nativeEvent.locationX,
+									event.nativeEvent.locationY,
+								);
+								const cell = hitCell(x, y);
+								if (cell) {
+									onTouchCell(cell, false);
+								}
+							}
+						: undefined
+				}
+				onResponderRelease={interactive ? onRelease : undefined}
+				onResponderTerminate={interactive ? onRelease : undefined}
+			>
 				<View
-					key={`${cell.x},${cell.y}`}
 					pointerEvents="none"
 					style={{
-						position: "absolute",
-						left,
-						top,
-						width: CELL_VIEW_SIZE,
-						height: CELL_VIEW_SIZE,
+						width: positions.width,
+						height: positions.height,
+						transform: [{ scale }],
+						marginLeft: (positions.width * (scale - 1)) / 2,
+						marginTop: (positions.height * (scale - 1)) / 2,
 					}}
 				>
-					<CellView cell={cell} line={lineAtCell(drawn, cell.x, cell.y)} />
+					{positions.items.map(({ cell, left, top }) => (
+						<View
+							key={`${cell.x},${cell.y}`}
+							pointerEvents="none"
+							style={{
+								position: "absolute",
+								left,
+								top,
+								width: CELL_VIEW_SIZE,
+								height: CELL_VIEW_SIZE,
+							}}
+						>
+							<CellView cell={cell} line={lineAtCell(drawn, cell.x, cell.y)} />
+						</View>
+					))}
 				</View>
-			))}
+			</View>
 		</View>
 	);
 }

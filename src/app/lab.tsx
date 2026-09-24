@@ -184,7 +184,7 @@ export default function LabScreen() {
 
 				{board ? (
 					<>
-						<View className="items-center justify-center py-2">
+						<View className="h-[360px] w-full">
 							<BoardView
 								board={board}
 								lines={lines}

@@ -37,7 +37,7 @@ export function ClearedView({
 				<Text className="mt-1 text-base text-white">{levelName}</Text>
 			</View>
 
-			<View className="flex-1 items-center justify-center px-4">
+			<View className="w-full flex-1 px-4">
 				<BoardView board={board} lines={lines} />
 			</View>
 
