@@ -1,28 +1,22 @@
-# Expo スタックひな形
-
-Expo SDK 57 の出発点です。GitHub の **Use this template** から新しいリポジトリを作って使います。
-
-## 入っているもの
-
-- Expo Router（`src/app`）
-- NativeWind / Zen Maru Gothic
-- Zustand / Immer / AsyncStorage
-- expo-audio / expo-haptics / expo-image
-- Biome
-- TypeScript
-- devenv（Node.js 24）
-- grilling skill（`.agents/skills`）
-
-## 始める
+# 開発
 
 ```bash
 devenv shell
-npm install
 npm run dev
+npx expo start --tunnel
 ```
 
-## 最初に変えるもの
+# デプロイ
 
-- `package.json` の `name`
-- `app.json` の `name` / `slug` / `scheme`
-- `assets/images/` のアイコン
+```bash
+# easにログイン
+npx eas-cli login
+# ビルドの設定(初回のみ)
+npx eas-cli build:configure
+# ipaを作る
+npx eas-cli build --platform ios --profile production
+# 作成したipaをstoreに上げる
+npx eas-cli submit --platform ios --latest
+# development build
+npx eas-cli build --platform ios --profile development
+```
