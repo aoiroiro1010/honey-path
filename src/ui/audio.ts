@@ -12,10 +12,9 @@ const SFX = {
 	clear: require("../../assets/audio/sfx/clear.wav"),
 	tap: require("../../assets/audio/sfx/tap.wav"),
 	reset: require("../../assets/audio/sfx/reset.wav"),
-	blocked: require("../../assets/audio/sfx/blocked.wav"),
 } as const;
 
-const BGM = require("../../assets/audio/bgm/bgm.wav");
+const BGM = require("../../assets/audio/bgm/bgm.mp3");
 
 export type SfxName = keyof typeof SFX;
 
@@ -26,7 +25,6 @@ const POOL_SIZE: Record<SfxName, number> = {
 	clear: 1,
 	tap: 2,
 	reset: 1,
-	blocked: 2,
 };
 
 let prepared: Promise<void> | null = null;
