@@ -28,12 +28,7 @@ export function PlayingView({
 }: Props) {
 	return (
 		<View className="flex-1">
-			<ScreenHeader
-				title={title}
-				onBack={onBack}
-				onReset={onReset}
-				trailing={trailing}
-			/>
+			<ScreenHeader title={title} onBack={onBack} trailing={trailing} />
 			<PathProgress board={board} lines={lines} />
 			<View className="w-full flex-1 px-4">
 				<BoardView board={board} lines={lines} onChangeLines={onChangeLines} />
@@ -42,7 +37,7 @@ export function PlayingView({
 				<Button
 					label="リセット"
 					variant="secondary"
-					iconLeft="backspace-outline"
+					iconLeft="refresh"
 					feedback="reset"
 					onPress={onReset}
 				/>
