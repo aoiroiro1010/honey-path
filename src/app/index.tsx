@@ -11,23 +11,22 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Ellipse, Path, Polygon } from "react-native-svg";
 import { startBgm, stopBgm } from "@/ui/audio";
 import { useAudioPrefs } from "@/ui/audioPrefs";
 import { Button } from "@/ui/Button";
-import { COLOR_HEX } from "@/ui/board/palette";
 import { hapticPress } from "@/ui/haptics";
 import { SettingSwitch } from "@/ui/SettingSwitch";
 import { theme } from "@/ui/theme";
 
 const BG = require("../../assets/images/background.png");
+const LOGO = require("../../assets/images/title-logo.png");
 
 export default function TitleScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const fade = useState(() => new Animated.Value(0))[0];
-	const beeY = useState(() => new Animated.Value(0))[0];
+	const logoY = useState(() => new Animated.Value(0))[0];
 
 	useEffect(() => {
 		Animated.timing(fade, {
@@ -37,21 +36,21 @@ export default function TitleScreen() {
 		}).start();
 		const bob = Animated.loop(
 			Animated.sequence([
-				Animated.timing(beeY, {
-					toValue: -8,
-					duration: 1000,
+				Animated.timing(logoY, {
+					toValue: -6,
+					duration: 1200,
 					useNativeDriver: true,
 				}),
-				Animated.timing(beeY, {
+				Animated.timing(logoY, {
 					toValue: 0,
-					duration: 1000,
+					duration: 1200,
 					useNativeDriver: true,
 				}),
 			]),
 		);
 		bob.start();
 		return () => bob.stop();
-	}, [beeY, fade]);
+	}, [fade, logoY]);
 
 	return (
 		<View className="flex-1 bg-sky-200">
@@ -71,21 +70,15 @@ export default function TitleScreen() {
 				}}
 			>
 				<View className="flex-1 items-center justify-center">
-					<View className="mb-3 flex-row items-center">
-						<HexCluster />
-						<Text
-							className="ml-2 font-heading text-5xl text-amber-950"
-							style={styles.titleShadow}
-						>
-							Honey Path
-						</Text>
-						<Animated.View
-							className="ml-1.5 mb-6"
-							style={{ transform: [{ translateY: beeY }] }}
-						>
-							<BeeMark />
-						</Animated.View>
-					</View>
+					<Animated.View style={{ transform: [{ translateY: logoY }] }}>
+						<Image
+							source={LOGO}
+							style={styles.logo}
+							contentFit="contain"
+							accessibilityLabel="Honey Path"
+							priority="high"
+						/>
+					</Animated.View>
 
 					<Text
 						className="mt-2 text-center font-heading text-base leading-7 text-amber-950/90"
@@ -234,68 +227,11 @@ function SettingsSheet({
 	);
 }
 
-/** デザインイメージの三連ヘックス */
-function HexCluster() {
-	const s = 11;
-	const h = s * Math.sqrt(3);
-	const points = (cx: number, cy: number) => {
-		const pts: string[] = [];
-		for (let i = 0; i < 6; i++) {
-			const a = ((60 * i - 30) * Math.PI) / 180;
-			pts.push(`${cx + s * Math.cos(a)},${cy + s * Math.sin(a)}`);
-		}
-		return pts.join(" ");
-	};
-	return (
-		<Svg width={40} height={36} viewBox="0 0 40 36">
-			<Polygon
-				points={points(13, 12)}
-				fill={COLOR_HEX.green}
-				stroke="#fff"
-				strokeWidth={1.2}
-			/>
-			<Polygon
-				points={points(27, 12)}
-				fill="#86efac"
-				stroke="#fff"
-				strokeWidth={1.2}
-			/>
-			<Polygon
-				points={points(20, 12 + h * 0.55)}
-				fill={COLOR_HEX.yellow}
-				stroke="#fff"
-				strokeWidth={1.2}
-			/>
-		</Svg>
-	);
-}
-
-function BeeMark() {
-	return (
-		<Svg width={28} height={24} viewBox="0 0 28 24">
-			<Ellipse cx={10} cy={10} rx={5} ry={3.5} fill="#fde68a" opacity={0.9} />
-			<Ellipse cx={18} cy={10} rx={5} ry={3.5} fill="#fde68a" opacity={0.9} />
-			<Ellipse cx={14} cy={12} rx={6} ry={5} fill="#fbbf24" />
-			<Path
-				d="M10 10 Q14 8 18 10"
-				stroke="#78350f"
-				strokeWidth={1.4}
-				fill="none"
-			/>
-			<Path
-				d="M10 13 Q14 11 18 13"
-				stroke="#78350f"
-				strokeWidth={1.4}
-				fill="none"
-			/>
-			<Ellipse cx={14} cy={7} rx={3.2} ry={2.6} fill="#44403c" />
-			<Path d="M11 5 L9 2" stroke="#44403c" strokeWidth={1.2} />
-			<Path d="M17 5 L19 2" stroke="#44403c" strokeWidth={1.2} />
-		</Svg>
-	);
-}
-
 const styles = StyleSheet.create({
+	logo: {
+		width: 280,
+		height: 280,
+	},
 	titleShadow: {
 		textShadowColor: "rgba(255,255,255,0.55)",
 		textShadowOffset: { width: 0, height: 1 },
